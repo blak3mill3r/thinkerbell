@@ -1,0 +1,17 @@
+import glob
+#-------------------------------------------------------------------------------
+# Unit tests
+Import('testEnv')
+Import('env')
+
+testEnv = testEnv.Clone()
+#testEnv.AppendUnique(LIBPATH=[env.Dir('../lib')], LIBS=['rosal_renderer'])
+#testEnv.AppendUnique(LIBPATH=[env.Dir('../lib')])
+testEnv.AppendUnique(INCLUDE=[env.Dir('/home/blake/w/thinkerbell/src').abspath])
+#testEnv.PrependENVPath('LD_LIBRARY_PATH', env.Dir('.').abspath)
+
+# you can also use glob to add all the files in the folder.
+files = glob.glob('*.cc')
+testEnv.addUnitTest('test_suite', files)
+
+# all the tests added above are automatically added to the 'test' alias.
