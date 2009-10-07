@@ -10,12 +10,13 @@ class Rbm {
     ~Rbm();
     void activate_a();
     void activate_b();
-    void dbg_a();
-    void dbg_b();
+    void randomize_weights();
+    void host_to_device();
+    void device_to_host();
+    Weights m_W;
   private:
     Neurons *m_A;
     Neurons *m_B;
-    Weights m_W;
 };
 
 #endif

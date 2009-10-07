@@ -5,7 +5,6 @@ SetOption( 'num_jobs', 4 ) # Set this to the number of processors you have.  TOD
 libthinkerbell_sources           = glob.glob( 'src/*.cc' )
 libthinkerbell_cuda_sources      = glob.glob( 'src/*.cu' )
 libthinkerbell_headers           = glob.glob( 'src/*.h' )
-libthinkerbell_test_unit_sources = glob.glob( 'src/test/unit/*.cc' )
 
 env = Environment()
 env.Tool('cuda', toolpath = ['./tools/'])
@@ -20,11 +19,11 @@ env.AppendENVPath('INCLUDE', './')
 env.AppendENVPath('INCLUDE', '/usr/local/cuda/include/')
 
 if ARGUMENTS.get('debug', 0):
-    env['CCFLAGS'] += ['-g', '-D__LINUX_ALSASEQ__']
+    env['CCFLAGS'] += ['-g' ]
 else:
-    env['CCFLAGS'] += ['-O3', '-D__LINUX_ALSASEQ__', '-DMUX_NODEBUG']
+    env['CCFLAGS'] += ['-O3' ]
 
-env.SharedLibrary( source = libthinkerbell_sources + libthinkerbell_cuda_sources, target = 'bin/thinkerbell' )
+env.SharedLibrary( source = libthinkerbell_sources + libthinkerbell_cuda_sources, target = 'lib/thinkerbell' )
 env.Command( 'tags', libthinkerbell_sources + libthinkerbell_headers, 'ctags -o $TARGET $SOURCES' )
 
 ### Testing ###

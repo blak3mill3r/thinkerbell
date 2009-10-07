@@ -1,1 +1,5 @@
 need to use write-combining memory for transferring training examples to the GPU
+
+todo
+  fix scons build scripts for cubin format
+  switch to cudamm

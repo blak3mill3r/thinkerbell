@@ -12,7 +12,15 @@ void Rbm::activate_a()
 {
   dim3 dim_block( BLOCK_SIZE, BLOCK_SIZE );
   dim3 dim_grid( 8 );
-  activation_update_amajor<<<dim_grid, dim_block>>>( m_A->m_neurons, m_B->m_neurons, m_W.d_weights() ); 
+  activation_update_amajor<<<dim_grid, dim_block>>>( m_A->m_neurons, m_B->m_neurons, m_W.device_weights(), 1.0 ); 
+}
+
+// compute activation for B based on activation of A
+void Rbm::activate_b()
+{
+  dim3 dim_block( BLOCK_SIZE, BLOCK_SIZE );
+  dim3 dim_grid( 8 );
+  activation_update_bmajor<<<dim_grid, dim_block>>>( m_B->m_neurons, m_A->m_neurons, m_W.device_weights(), 1.0 ); 
 }
 
 /*
@@ -30,10 +38,8 @@ __device__ float sigmoid( float v, float steepness )
 // based on activation levels of neurons pointed to by B_activation
 // the weight matrix should be in A-major order
 __global__ void
-activation_update_amajor( dNeurons A, dNeurons B, weight_type* W )  // FIXME add steepness parameter
+activation_update_amajor( dNeurons A, dNeurons B, weight_type* W, float steepness )
 {
-  //FIXME
-  float steepness = 1.0;
   // compute index in A (unique to this thread)
   int i = gridDim.x * ( (blockDim.y * blockIdx.y) + threadIdx.y )
                     + ( (blockDim.x * blockIdx.x) + threadIdx.x );

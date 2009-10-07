@@ -7,37 +7,50 @@
  * never implicitly performs host/device transfers
  */
 
+#include <iostream>
 #include "device_resource.h"
 
-//cutilSafeCall(
-//);
+//FIXME make the throws more useful
 DeviceResource::DeviceResource( uint bytes )
 {
+  cudaError_t result;
+
   // allocate (page-locked) host memory
-  cudaHostAlloc( (void**) &m_host_pointer, bytes, cudaHostAllocDefault );
+  result = cudaHostAlloc( (void**) &m_host_pointer, bytes, cudaHostAllocDefault );
+  if(result != cudaSuccess) { throw 1; }
+  //m_host_pointer = malloc( bytes );
+
   // allocate device memory
-  cudaMalloc((void**) &m_device_pointer, bytes );
+  result = cudaMalloc((void**) &m_device_pointer, bytes );
+  if(result != cudaSuccess) { throw 2; }
 }
 
 DeviceResource::~DeviceResource()
 {
-  cudaFree( m_device_pointer );
-  cudaFreeHost( m_host_pointer );
+  cudaError_t result;
+  result = cudaFree( m_device_pointer );
+  if(result != cudaSuccess) { throw 3; }
+  result = cudaFreeHost( m_host_pointer );
+  if(result != cudaSuccess) { throw 4; }
 }
 
 void DeviceResource::host_to_device()
 {
-  cudaMemcpy(m_device_pointer,
-             m_host_pointer,
-             m_bytes,
-             cudaMemcpyHostToDevice);
+  cudaError_t result;
+  result = cudaMemcpy(m_device_pointer,
+                      m_host_pointer,
+                      m_bytes,
+                      cudaMemcpyHostToDevice);
+  if(result != cudaSuccess) { std::cout << "Badness, it's not cudaSuccess it is instead " << result << "\n"; throw 5; }
 }
 
 void DeviceResource::device_to_host()
 {
-  cudaMemcpy(m_host_pointer,
-             m_device_pointer,
-             m_bytes,
-             cudaMemcpyDeviceToHost);
+  cudaError_t result;
+  result = cudaMemcpy(m_host_pointer,
+                      m_device_pointer,
+                      m_bytes,
+                      cudaMemcpyDeviceToHost);
+  if(result != cudaSuccess) { throw 6; }
 }
 

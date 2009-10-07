@@ -15,12 +15,12 @@ Weights::~Weights() { }
 
 uint Weights::size() { return m_size; }
 
-weight_type * Weights::h_weights()
+weight_type * Weights::weights()
 {
   return (weight_type *)m_host_pointer;
 }
 
-weight_type * Weights::d_weights()
+weight_type * Weights::device_weights()
 {
   return (weight_type *)m_device_pointer;
 }

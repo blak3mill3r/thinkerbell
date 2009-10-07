@@ -17,7 +17,7 @@ class Neurons: public DeviceResource {
     Neurons( uint n );
     ~Neurons();
     uint size();
-    activation_type *h_activations();
+    activation_type *h_activations(); //FIXME rename this activations()
     dNeurons m_neurons;
   private:
     uint m_size;

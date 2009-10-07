@@ -9,8 +9,8 @@ class Weights: public DeviceResource {
     Weights( uint n );
     ~Weights();
     uint size();
-    weight_type *h_weights();
-    weight_type *d_weights();
+    weight_type *weights();
+    weight_type *device_weights();
   private:
     uint m_size;
 };

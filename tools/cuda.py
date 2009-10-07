@@ -46,8 +46,8 @@ def generate(env):
         env['ENABLESHAREDNVCCFLAG'] = '-shared'
 
         # default NVCC commands
-        env['STATICNVCCCMD'] = '$NVCC -o $TARGET -c $NVCCFLAGS $STATICNVCCFLAGS $SOURCES'
-        env['SHAREDNVCCCMD'] = '$NVCC -o $TARGET -c $NVCCFLAGS $SHAREDNVCCFLAGS $ENABLESHAREDNVCCFLAG $SOURCES'
+        env['STATICNVCCCMD'] = '$NVCC -o $TARGET -cubin $NVCCFLAGS $STATICNVCCFLAGS $SOURCES'
+        env['SHAREDNVCCCMD'] = '$NVCC -o $TARGET -cubin $NVCCFLAGS $SHAREDNVCCFLAGS $ENABLESHAREDNVCCFLAG $SOURCES'
 
         # helpers
         home=os.environ.get('HOME', '')

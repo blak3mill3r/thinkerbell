@@ -1,5 +1,6 @@
 *.o
 *.os
 *.cubin
+*.pyc
 .sconsign.dblite
 tags
