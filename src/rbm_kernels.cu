@@ -7,6 +7,7 @@
  * Host code:
  */
 
+/*
 // compute activation for A based on activation of B
 void Rbm::activate_a()
 {
@@ -22,6 +23,7 @@ void Rbm::activate_b()
   dim3 dim_grid( 8 );
   activation_update_bmajor<<<dim_grid, dim_block>>>( m_B->m_neurons, m_A->m_neurons, m_W.device_weights(), 1.0 ); 
 }
+*/
 
 /*
  * Device code:

@@ -1,6 +1,7 @@
 // unit test for class Neurons
 #include <boost/test/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
+#include <cudamm/cuda.hpp>
 #include <iostream>
 
 #include <rbm.h>
@@ -10,6 +11,10 @@ using namespace std;
 
 BOOST_AUTO_TEST_CASE( neuronActivation )
 {
+
+  // initialize CUDAmm
+  cuda::Cuda cuda_context(0);
+
   // instantiate two sets of neurons
   Neurons A(0x10);
   Neurons B(0x10);

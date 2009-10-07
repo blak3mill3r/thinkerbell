@@ -7,11 +7,11 @@
 #include "neurons.h"
 
 Neurons::Neurons( uint n )
-  : DeviceResource( (uint)(n * sizeof(activation_type)) ), m_size(n)
+  : m_size(n), m_device_memory(n * sizeof(activation_type))
 {
   // prepare the struct for kernel calls
   m_neurons.size        = m_size;
-  m_neurons.activations = (activation_type *)m_device_pointer;
+  // FIXME how to pass the device pointer?
   // note the activation values are undefined at this point
 }
 
@@ -19,7 +19,7 @@ Neurons::~Neurons() { }
 
 uint Neurons::size() { return m_size; }
 
-activation_type * Neurons::h_activations()
+void Neurons::set_activations( const void *source )
 {
-  return (activation_type *)m_host_pointer;
+  m_device_memory.upload( source );
 }
