@@ -1,0 +1,5 @@
+*.o
+*.os
+*.cubin
+.sconsign.dblite
+tags
