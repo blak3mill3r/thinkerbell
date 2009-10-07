@@ -6,8 +6,7 @@ libthinkerbell_sources           = glob.glob( 'src/*.cc' )
 libthinkerbell_cuda_sources      = glob.glob( 'src/*.cu' )
 libthinkerbell_headers           = glob.glob( 'src/*.h' )
 
-env = Environment()
-env.Tool('cuda', toolpath = ['./tools/'])
+env = Environment(tools=('default', 'cuda'))
 
 env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.environ['HOME']} # Environment variables required by colorgcc.
 env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
@@ -16,14 +15,15 @@ env['CPPPATH'] = [ './src' ]
 env['LIBS'] = [ 'boost_thread', 'pthread' ]
 
 env.AppendENVPath('INCLUDE', './')
-env.AppendENVPath('INCLUDE', '/usr/local/cuda/include/')
+#env.AppendENVPath('INCLUDE', '/usr/local/cuda/include/')
 
 if ARGUMENTS.get('debug', 0):
     env['CCFLAGS'] += ['-g' ]
 else:
     env['CCFLAGS'] += ['-O3' ]
 
-env.SharedLibrary( source = libthinkerbell_sources + libthinkerbell_cuda_sources, target = 'lib/thinkerbell' )
+env.SharedLibrary( source = libthinkerbell_sources, target = 'lib/thinkerbell' )
+env.Cubin( 'src/rbm_kernels' )
 env.Command( 'tags', libthinkerbell_sources + libthinkerbell_headers, 'ctags -o $TARGET $SOURCES' )
 
 ### Testing ###
