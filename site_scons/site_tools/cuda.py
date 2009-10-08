@@ -14,7 +14,7 @@ def generate_actions(source, target, env, for_signature):
 
 def generate(env):
         # default flags for the NVCC compiler
-        env['NVCCFLAGS'] = ''
+        env['NVCCFLAGS'] = '-I' + " -I".join( [ './src', '/home/blake/src/cudamm/' ] )
 
         # helpers
         home=os.environ.get('HOME', '')
@@ -63,9 +63,9 @@ def generate(env):
         env.PrependENVPath('PATH', cudaToolkitPath + '/bin')
 
         # add required libraries
-        env.Append(CPPPATH=[cudaToolkitPath + '/include'])
+        env.Append(CPPPATH=[cudaToolkitPath + '/include', '/home/blake/src/cudamm/'])
         env.Append(LIBPATH=[cudaToolkitPath + '/lib'])
-        env.Append(LIBS=['cudart'])
+        env.Append(LIBS=['nvcuda'])
 
         bldr = env.Builder(generator = generate_actions,
                        suffix = '.cubin',

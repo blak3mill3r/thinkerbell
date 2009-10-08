@@ -10,12 +10,12 @@ env = Environment(tools=('default', 'cuda'))
 
 env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.environ['HOME']} # Environment variables required by colorgcc.
 env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
-env['CCFLAGS'] = [ '-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
+env['CCFLAGS'] = [ ] #'-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
 env['CPPPATH'] = [ './src', '/home/blake/src/cudamm/' ]
-env['LIBS'] = [ 'boost_thread', 'pthread', 'cudamm' ]
+env['LIBS'] = [ 'boost_thread', 'pthread', 'cudamm', 'cuda' ]
 
 env.AppendENVPath('INCLUDE', './')
-#env.AppendENVPath('CPPPATH', '/home/blake/src/cudamm/')
+env.AppendENVPath('CPPPATH', '/home/blake/src/cudamm/')
 #env.AppendENVPath('INCLUDE', '/usr/local/cuda/include/')
 
 if ARGUMENTS.get('debug', 0):

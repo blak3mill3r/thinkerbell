@@ -8,8 +8,8 @@ lib_path = env.Dir('../lib').abspath
 src_path = env.Dir('../src').abspath
 
 testEnv = testEnv.Clone()
-testEnv.AppendUnique(LIBPATH=[lib_path], LIBS=['thinkerbell', 'boost_thread', 'pthread', 'cudart'])
-testEnv.AppendUnique(CPPPATH=[src_path])
+testEnv.AppendUnique(LIBPATH=[lib_path], LIBS=['thinkerbell', 'boost_thread', 'pthread', 'cuda'])
+testEnv['CPPPATH'] = [ src_path, '/home/blake/src/cudamm/' ]
 testEnv.PrependENVPath('LD_LIBRARY_PATH', lib_path)
 
 files = glob.glob('*.cc')
