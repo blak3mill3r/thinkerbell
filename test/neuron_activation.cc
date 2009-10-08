@@ -11,7 +11,6 @@ using namespace std;
 
 BOOST_AUTO_TEST_CASE( neuronActivation )
 {
-
   // initialize CUDAmm
   cuda::Cuda cuda_context(0);
 
@@ -29,6 +28,13 @@ BOOST_AUTO_TEST_CASE( neuronActivation )
   // randomize the RBM weights
   r.randomize_weights();
 
+  // set A activations
+  activation_type * activations = A.activations();
+  for(int i = 0; i < 16; ++i)
+    activations[i] = 0.0;
+  activations[1] = 1.0;
+  activations[2] = 1.0;
+
   cout << "synch rbm to device\n";
   // synch to device
   A.host_to_device();
@@ -43,7 +49,7 @@ BOOST_AUTO_TEST_CASE( neuronActivation )
   // synch to host
   B.device_to_host();
   // output the activations of B
-  activation_type * b_activations = B.h_activations();
+  activation_type * b_activations = B.activations();
   for(int bi=0; bi < B.size(); ++bi)
     cout << "B[" << bi << "] = " << b_activations[bi] << endl;
   // test something good:  FIXME this is not the best test

@@ -17,6 +17,9 @@ class Rbm {
   private:
     Neurons *m_A;
     Neurons *m_B;
+    cuda::Module module_rbm_kernels;
+    cuda::Function kernel_activation_update_amajor;
+    cuda::Function kernel_activation_update_bmajor;
 };
 
 #endif

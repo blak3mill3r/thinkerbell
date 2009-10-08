@@ -8,19 +8,30 @@
 #include "weights.h"
 
 Weights::Weights( uint n )
-  : DeviceResource( n * sizeof(weight_type) ), m_size(n)
-{ }
+  : m_size(n), m_device_memory(n * sizeof(weight_type))
+{
+  CUresult result;
+  result = cuMemAllocHost( (void**)&m_weights, m_size * sizeof(weight_type) );
+  if(result != CUDA_SUCCESS) { throw "Unable to allocate page-locked host memory for Weights"; }
+}
 
-Weights::~Weights() { }
+Weights::~Weights()
+{
+  CUresult result;
+  result = cuMemFreeHost( m_weights );
+  if(result != CUDA_SUCCESS) { throw "Unable to free page-locked host memory for Weights"; }
+}
 
 uint Weights::size() { return m_size; }
 
-weight_type * Weights::weights()
+weight_type * Weights::weights() { return m_weights; }
+
+void Weights::host_to_device()
 {
-  return (weight_type *)m_host_pointer;
+  m_device_memory.upload( (void *)m_weights );
 }
 
-weight_type * Weights::device_weights()
+void Weights::device_to_host()
 {
-  return (weight_type *)m_device_pointer;
+  m_device_memory.download( (void *)m_weights );
 }

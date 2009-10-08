@@ -1,29 +1,5 @@
-#include "rbm.h"
-#include "rbm_kernels.h"
-
-#define BLOCK_SIZE 8
-
-/*
- * Host code:
- */
-
-/*
-// compute activation for A based on activation of B
-void Rbm::activate_a()
-{
-  dim3 dim_block( BLOCK_SIZE, BLOCK_SIZE );
-  dim3 dim_grid( 8 );
-  activation_update_amajor<<<dim_grid, dim_block>>>( m_A->m_neurons, m_B->m_neurons, m_W.device_weights(), 1.0 ); 
-}
-
-// compute activation for B based on activation of A
-void Rbm::activate_b()
-{
-  dim3 dim_block( BLOCK_SIZE, BLOCK_SIZE );
-  dim3 dim_grid( 8 );
-  activation_update_bmajor<<<dim_grid, dim_block>>>( m_B->m_neurons, m_A->m_neurons, m_W.device_weights(), 1.0 ); 
-}
-*/
+extern "C" {
+#include "types.h"
 
 /*
  * Device code:
@@ -43,8 +19,8 @@ __global__ void
 activation_update_amajor( dNeurons A, dNeurons B, weight_type* W, float steepness )
 {
   // compute index in A (unique to this thread)
-  int i = gridDim.x * ( (blockDim.y * blockIdx.y) + threadIdx.y )
-                    + ( (blockDim.x * blockIdx.x) + threadIdx.x );
+  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
+  int i = bi * (blockDim.x * blockDim.y) + threadIdx.y * blockDim.x + threadIdx.x;
   
   // loop over B accumulating each neuron's contribution to the activation of this A-neuron
   float sum_of_inputs = 0.0;
@@ -62,8 +38,9 @@ __global__ void
 activation_update_bmajor( dNeurons A, dNeurons B, weight_type* W, float steepness )
 {
   // compute index in A (unique to this thread)
-  int i = gridDim.x * ( (blockDim.y * blockIdx.y) + threadIdx.y )
-                    + ( (blockDim.x * blockIdx.x) + threadIdx.x );
+  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
+  int i = bi * (blockDim.x * blockDim.y)
+        + (threadIdx.y * blockDim.x) + threadIdx.x;
   
   // loop over B accumulating each neuron's contribution to the activation of this A-neuron
   float sum_of_inputs = 0.0;
@@ -72,4 +49,6 @@ activation_update_bmajor( dNeurons A, dNeurons B, weight_type* W, float steepnes
 
   // set this A-neuron's activation to sigmoid(sum_of_inputs)
   A.activations[i] = sigmoid(sum_of_inputs, steepness);
+}
+
 }

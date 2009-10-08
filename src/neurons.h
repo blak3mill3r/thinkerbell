@@ -5,23 +5,19 @@
 #include <cuda/cuda.h>
 #include <cudamm/cuda.hpp>
 
-// basically a workaround for the fact that you cannot pass pointers to instances of a c++ class to CUDA
-// FIXME is that really true?
-typedef struct {
-  int size;
-  activation_type* activations;
-} dNeurons;
-
 class Neurons {
   public:
     Neurons( uint n );
     ~Neurons();
     uint size();
     dNeurons m_neurons;
-    void set_activations( const void *source );
+    void host_to_device();
+    void device_to_host();
+    activation_type * activations();
+    cuda::DeviceMemory m_device_memory;
   private:
     uint m_size;
-    cuda::DeviceMemory m_device_memory;
+    activation_type * m_activations;
 };
 
 
