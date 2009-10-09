@@ -7,6 +7,8 @@
 
 #include "weights.h"
 
+namespace thinkerbell {
+
 Weights::Weights( uint n )
   : m_size(n), m_device_memory(n * sizeof(weight_type))
 {
@@ -34,4 +36,6 @@ void Weights::host_to_device()
 void Weights::device_to_host()
 {
   m_device_memory.download( (void *)m_weights );
+}
+
 }

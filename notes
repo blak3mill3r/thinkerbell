@@ -1,5 +1,6 @@
-need to use write-combining memory for transferring training examples to the GPU
-
 todo
-  fix scons build scripts for cubin format
-  switch to cudamm
+  singleton cubin loader with a map<std::string, cuda::Program>? mt probs
+  multithreaded host code with boost::thread
+  struct for each kernel's parameters
+  weight update kernels
+  use write-combining memory for transferring training examples to the GPU

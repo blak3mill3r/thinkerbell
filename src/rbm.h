@@ -4,6 +4,8 @@
 #include "neurons.h"
 #include "weights.h"
 
+namespace thinkerbell {
+
 class Rbm {
   public:
     Rbm(Neurons *a, Neurons *b);
@@ -21,5 +23,7 @@ class Rbm {
     cuda::Function kernel_activation_update_amajor;
     cuda::Function kernel_activation_update_bmajor;
 };
+
+}
 
 #endif

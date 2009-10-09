@@ -5,6 +5,8 @@
 #include <cuda/cuda.h>
 #include <cudamm/cuda.hpp>
 
+namespace thinkerbell {
+
 class Weights {
   public:
     Weights( uint n );
@@ -18,5 +20,7 @@ class Weights {
     uint m_size;
     weight_type *m_weights;
 };
+
+}
 
 #endif

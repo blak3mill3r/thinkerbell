@@ -6,6 +6,8 @@
 
 #include "rbm.h"
 
+namespace thinkerbell {
+
 Rbm::Rbm(Neurons *a, Neurons *b)
   : m_W( a->size() * b->size() ),
     m_A(a),
@@ -18,13 +20,15 @@ Rbm::Rbm(Neurons *a, Neurons *b)
 Rbm::~Rbm()
 { }
 
+#define RND_SCALE  (1.0f)
+#define RND_BIAS   (-0.5f)
+
 void Rbm::randomize_weights()
 {
+  srand(2984329);
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
-    weights[wi] = 10.0;
-  weights[16] = 0.0;
-  weights[32] = 0.0;
+    weights[wi] = ( rand() / (float)RAND_MAX ) * RND_SCALE + RND_BIAS;
 }
 
 void Rbm::activate_a()
@@ -83,4 +87,4 @@ void Rbm::activate_b()
     
 }
 
-
+}

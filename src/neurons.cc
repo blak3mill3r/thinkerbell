@@ -6,6 +6,8 @@
 
 #include "neurons.h"
 
+namespace thinkerbell {
+
 Neurons::Neurons( uint n )
   : m_size(n), m_device_memory(n * sizeof(activation_type))
 {
@@ -38,3 +40,5 @@ void Neurons::device_to_host()
 
 activation_type * Neurons::activations()
 { return m_activations; }
+
+}

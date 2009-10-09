@@ -8,6 +8,7 @@
 #define BOOST_TEST_MODULE thinkerbell_test_suite
 using namespace boost::unit_test;
 using namespace std;
+using namespace thinkerbell;
 
 BOOST_AUTO_TEST_CASE( neuronActivation )
 {

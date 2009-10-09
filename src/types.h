@@ -1,6 +1,8 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
+namespace thinkerbell {
+
 typedef unsigned int uint;
 typedef float weight_type;
 typedef float activation_type;
@@ -11,5 +13,7 @@ typedef struct {
   int size;
   activation_type* activations;
 } dNeurons;
+
+}
 
 #endif

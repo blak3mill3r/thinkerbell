@@ -5,6 +5,8 @@
 #include <cuda/cuda.h>
 #include <cudamm/cuda.hpp>
 
+namespace thinkerbell {
+
 class Neurons {
   public:
     Neurons( uint n );
@@ -20,5 +22,6 @@ class Neurons {
     activation_type * m_activations;
 };
 
+}
 
 #endif
