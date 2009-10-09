@@ -14,6 +14,7 @@ BOOST_AUTO_TEST_CASE( neuronActivation )
 {
   // initialize CUDAmm
   cuda::Cuda cuda_context(0);
+  cuda::Stream stream;
 
   // instantiate two sets of neurons
   Neurons A(0x10);
@@ -21,38 +22,62 @@ BOOST_AUTO_TEST_CASE( neuronActivation )
   BOOST_CHECK( A.size() == 0x10 );
   BOOST_CHECK( B.size() == 0x10 );
 
-  cout << "init rbm\n";
   // instantiate an RBM between them
   Rbm r( &A, &B ); 
 
-  cout << "'randomize' rbm\n";
   // randomize the RBM weights
   r.randomize_weights();
 
   // set A activations
   activation_type * activations = A.activations();
   for(int i = 0; i < 16; ++i)
-    activations[i] = 0.0;
-  activations[1] = 1.0;
-  activations[2] = 1.0;
+    activations[i] = (1.0/16.0) * i;
 
-  cout << "synch rbm to device\n";
   // synch to device
   A.host_to_device();
   B.host_to_device();
   r.m_W.host_to_device();
 
-  cout << "ye olde kernel invocation\n";
   // activate B based on A and weights (ye olde kernel invocation happens here)
-  r.activate_b();
+  for(int zz = 0; zz < 0x1000; ++zz)
+  {
+    r.activate_b(stream);
+    r.positive_weight_sample(stream);
+    r.activate_a(stream);
+    r.activate_b(stream);
+    r.negative_weight_sample(stream);
+    r.weight_update(stream);
+    // wait
+    if(!stream.query())
+    { stream.synchronize(); }
+    A.host_to_device();
+    cout << "finished " << zz << endl;
+  }
 
-  cout << "copy back to host\n";
   // synch to host
   B.device_to_host();
+  r.m_W_temp_positive.device_to_host();
+  r.m_W_temp_negative.device_to_host();
+
   // output the activations of B
+  cout << "B-activations:" << endl;
   activation_type * b_activations = B.activations();
   for(int bi=0; bi < B.size(); ++bi)
     cout << "B[" << bi << "] = " << b_activations[bi] << endl;
+
+  // output the positive and negative weight samples
+  /*
+  weight_type * positive_weight_sample = r.m_W_temp_positive.weights();
+  weight_type * negative_weight_sample = r.m_W_temp_negative.weights();
+  cout << "Weight samples:" << endl;
+  for(int ai=0; ai < A.size(); ++ai)
+    for(int bi=0; bi < B.size(); ++bi)
+      cout << "W[" << ai << "][" << bi
+           << "] += "
+           << positive_weight_sample[ ai*B.size() + bi ]
+           +  negative_weight_sample[ ai*B.size() + bi ] << endl;
+  */
+
   // test something good:  FIXME this is not the best test
   BOOST_CHECK_CLOSE( 1.0, 1.000000001, 0.01 );
   

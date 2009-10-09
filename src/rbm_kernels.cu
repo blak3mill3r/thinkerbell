@@ -1,6 +1,8 @@
 extern "C" {
 #include "types.h"
 
+using namespace thinkerbell;
+
 /*
  * Device code:
  * note that only certain sizes are acceptable for the input arrays
@@ -49,6 +51,36 @@ activation_update_bmajor( dNeurons A, dNeurons B, weight_type* W, float steepnes
 
   // set this A-neuron's activation to sigmoid(sum_of_inputs)
   A.activations[i] = sigmoid(sum_of_inputs, steepness);
+}
+
+// samples how "on" each pair of neurons are
+__global__ void
+weight_sample( dNeurons A, dNeurons B, weight_type* W, float learning_rate )
+{
+  // compute index in A (unique to this thread)
+  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
+  int i = bi * (blockDim.x * blockDim.y)
+        + (threadIdx.y * blockDim.x) + threadIdx.x;
+
+  // loop over B computing the product of Ai and Bj and storing it in the weight space
+  for( int j = 0; j < B.size; ++j )
+    W[i * B.size + j] = A.activations[i] * B.activations[j] * learning_rate;
+  
+}
+
+// adds W_positive and subtracts W_negative from W
+// A and B are not modified
+__global__ void
+weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive, weight_type * W_negative )
+{
+  // compute index in A (unique to this thread)
+  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
+  int i = bi * (blockDim.x * blockDim.y)
+        + (threadIdx.y * blockDim.x) + threadIdx.x;
+
+  // loop over B computing the sum of W_positive[Ai][Bj] and W_negative[Ai][Bj] and adding the result in W[Ai][Bj]
+  for( int j = 0; j < B.size; ++j )
+    W[i * B.size + j] = W[i * B.size + j] + W_positive[i * B.size + j] + W_negative[i * B.size + j];
 }
 
 }
