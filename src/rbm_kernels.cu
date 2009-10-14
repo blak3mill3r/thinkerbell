@@ -83,4 +83,19 @@ weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive
     W[i * B.size + j] = W[i * B.size + j] + W_positive[i * B.size + j] + W_negative[i * B.size + j];
 }
 
+// decays weights
+// A and B are not modified
+__global__ void
+weight_decay( dNeurons A, dNeurons B, weight_type * W, float decay )
+{
+  // compute index in A (unique to this thread)
+  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
+  int i = bi * (blockDim.x * blockDim.y)
+        + (threadIdx.y * blockDim.x) + threadIdx.x;
+
+  // loop over B decaying weights
+  for( int j = 0; j < B.size; ++j )
+    W[i * B.size + j] = W[i * B.size + j] * decay;
+}
+
 }

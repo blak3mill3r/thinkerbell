@@ -4,3 +4,5 @@
 *.pyc
 .sconsign.dblite
 tags
+test/test_suite
+lib/*.so

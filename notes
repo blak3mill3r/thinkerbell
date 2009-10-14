@@ -1,6 +1,5 @@
 todo
   singleton cubin loader with a map<std::string, cuda::Program>? mt probs
   multithreaded host code with boost::thread
-  struct for each kernel's parameters
-  weight update kernels
+  struct for each kernel's parameters or a cleaner way to call kernels
   use write-combining memory for transferring training examples to the GPU

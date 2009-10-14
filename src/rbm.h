@@ -17,6 +17,8 @@ class Rbm {
     void positive_weight_sample(const cuda::Stream &stream);
     void negative_weight_sample(const cuda::Stream &stream);
     void weight_update( const cuda::Stream &stream );
+    void weight_decay( float decay, const cuda::Stream &stream );
+    void training_step(const cuda::Stream &stream );
     
     void randomize_weights();
     void host_to_device();
@@ -26,15 +28,17 @@ class Rbm {
     Weights m_W_temp_negative;
     float learning_rate;
     float sigmoid_steepness;
-  private:
     Neurons *m_A;
     Neurons *m_B;
+  private:
     void weight_sample(const cuda::Stream &stream, Weights &W_temp, float learning_rate_multiplier);
+    inline int calculate_blocks();
     cuda::Module module_rbm_kernels;
     cuda::Function kernel_activation_update_amajor;
     cuda::Function kernel_activation_update_bmajor;
     cuda::Function kernel_weight_sample;
     cuda::Function kernel_weight_update;
+    cuda::Function kernel_weight_decay;
 };
 
 }
