@@ -21,6 +21,7 @@ else:
 
 env.SharedLibrary( source = libthinkerbell_sources, target = 'lib/thinkerbell' )
 env.Cubin( 'src/rbm_kernels' )
+#env.Program( 'src/graphs', source = ['src/graphs.cc'] )
 env.Command( 'tags', libthinkerbell_sources + libthinkerbell_headers, 'ctags -o $TARGET $SOURCES' )
 
 ### Testing ###

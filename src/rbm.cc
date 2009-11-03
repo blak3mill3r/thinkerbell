@@ -32,7 +32,7 @@ Rbm::~Rbm()
 
 void Rbm::randomize_weights()
 {
-  srand(23894);
+  srand(23894); // FIXME
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
     weights[wi] = ( ( rand() / (float)RAND_MAX ) * RND_SCALE ) + RND_BIAS;
@@ -150,7 +150,7 @@ inline int Rbm::calculate_blocks()
   if(    (num_weights % 0x10 != 0)            // all of this must be multiples of 16 for performance reasons (16 is the number of threads per block for all rbm kernels)
       || (m_A->size() % 0x10 != 0)
       || (m_B->size() % 0x10 != 0)
-    ) { throw 69; }
+    ) { throw 69; } // FIXME
   return (m_A->size() / 0x10);
 }
 
@@ -160,6 +160,18 @@ void Rbm::training_step( const cuda::Stream &stream )
   positive_weight_sample(stream);
   activate_a(stream);
   activate_b(stream);
+  negative_weight_sample(stream);
+  weight_update(stream);
+}
+
+// FIXME fuck I hate this name
+// it's the same as the above function but trains A on B instead of vice-versa
+void Rbm::inverted_training_step( const cuda::Stream &stream )
+{
+  activate_a(stream);
+  positive_weight_sample(stream);
+  activate_b(stream);
+  activate_a(stream);
   negative_weight_sample(stream);
   weight_update(stream);
 }
