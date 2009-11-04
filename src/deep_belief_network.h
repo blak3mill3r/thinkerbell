@@ -27,7 +27,7 @@ struct VertexProperties
   string name;
   bool active;
   Neurons *neurons;
-  VertexProperties() : active(true), name("anonymous neurons") {}
+  VertexProperties() : name("anonymous neurons"), active(true) {}
 };
 
 struct EdgeProperties
@@ -57,14 +57,14 @@ class DeepBeliefNetwork
     Edge connect( const Vertex &va, const Vertex &vb );
     void debugify();
     void training_step( const cuda::Stream &stream );
-    void set_example_factory( const AbstractExampleFactory *factory );
+    void set_example_factory( const AbstractTrainer *factory );
   private:
     void activate_vertex( const Vertex &v, const cuda::Stream &stream );
     void training_step_vertex( const Vertex &v, const cuda::Stream &stream );
     // FIXME think of a better name for set_neurons_from_example
     void set_neurons_from_example( const Vertex &v, const TrainingExample &example );
     Graph m_graph;
-    const AbstractExampleFactory * m_example_factory;
+    const AbstractTrainer * m_example_factory;
 };
 
 }

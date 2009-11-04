@@ -97,7 +97,7 @@ void DeepBeliefNetwork::training_step_vertex( const Vertex &v, const cuda::Strea
   }
 }
 
-void DeepBeliefNetwork::set_example_factory( const AbstractExampleFactory *factory )
+void DeepBeliefNetwork::set_example_factory( const AbstractTrainer *factory )
 {
   m_example_factory = factory;
 }

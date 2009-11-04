@@ -24,11 +24,11 @@ using namespace boost::unit_test;
 using namespace std;
 using namespace thinkerbell;
 
-class SineWaveExampleFactory : public AbstractExampleFactory
+class SineWaveTrainer : public AbstractTrainer
 {
   public:
-    SineWaveExampleFactory( uint size, uint num_examples )
-      : AbstractExampleFactory( size, num_examples )
+    SineWaveTrainer( uint size, uint num_examples )
+      : AbstractTrainer( size, num_examples )
     {}
 
     void initialize()
@@ -68,8 +68,8 @@ BOOST_AUTO_TEST_CASE( deepBeliefNetwork )
   dbn.connect( vB, vC );
   dbn.connect( vC, vD );
 
-  // instantiate a SineWaveExampleFactory 
-  SineWaveExampleFactory factory( A_SIZE, 2 );    // a pool the size of 2 examples (enough for every possible phase of the sine wave to be a training example)
+  // instantiate a SineWaveTrainer 
+  SineWaveTrainer factory( A_SIZE, 2 );    // a pool the size of 2 examples (enough for every possible phase of the sine wave to be a training example)
 
   // initialize it:
   factory.initialize();
