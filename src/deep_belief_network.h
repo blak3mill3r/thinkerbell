@@ -15,6 +15,8 @@
 #include "types.h"
 #include "neurons.h"
 #include "rbm.h"
+#include "abstract_example_factory.h"
+#include "training_example.h"
 
 namespace thinkerbell {
 using namespace std;
@@ -56,8 +58,12 @@ class DeepBeliefNetwork
     void debugify();
     void activate( const Vertex &v, const cuda::Stream &stream );
     void training_step( const Vertex &v, const cuda::Stream &stream );
+    void set_example_factory( const AbstractExampleFactory *factory );
   private:
+    // FIXME think of a better name for set_neurons_from_example
+    void set_neurons_from_example( const Vertex &v, const TrainingExample &example );
     Graph m_graph;
+    const AbstractExampleFactory * m_example_factory;
 };
 
 }

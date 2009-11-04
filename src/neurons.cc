@@ -13,7 +13,7 @@ Neurons::Neurons( uint n )
 {
   CUresult result;
   result = cuMemAllocHost( (void**)&m_activations, m_size * sizeof(activation_type) );
-  if(result != CUDA_SUCCESS) { throw "Unable to allocate page-locked host memory for Neurons"; }
+  if(result != CUDA_SUCCESS) { throw memory_exception; }
   // prepare the struct for kernel calls
   m_neurons.size        = m_size;
   // note the activation values are undefined at this point
@@ -23,7 +23,7 @@ Neurons::~Neurons()
 {
   CUresult result;
   result = cuMemFreeHost( m_activations );
-  if(result != CUDA_SUCCESS) { throw "Unable to free page-locked host memory for Neurons"; }
+  if(result != CUDA_SUCCESS) { throw memory_exception; }
 }
 
 uint Neurons::size() { return m_size; }

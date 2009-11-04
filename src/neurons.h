@@ -12,7 +12,7 @@ class Neurons {
     Neurons( uint n );
     ~Neurons();
     uint size();
-    dNeurons m_neurons;
+    dNeurons m_neurons;         // FIXME unused?
     void host_to_device();
     void device_to_host();
     activation_type * activations();

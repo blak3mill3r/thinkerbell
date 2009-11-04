@@ -80,13 +80,26 @@ void DeepBeliefNetwork::training_step( const Vertex &v, const cuda::Stream &stre
   switch( num_inputs )
   {
     case 0:         // a perceptron blob
-      return;
+      set_neurons_from_example( v, m_example_factory->get_example() );
       break;
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
       m_graph[edge].rbm->inverted_training_step(stream);
       break;
   }
+}
+
+void DeepBeliefNetwork::set_example_factory( const AbstractExampleFactory *factory )
+{
+  m_example_factory = factory;
+}
+
+void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const TrainingExample &example )
+{
+  // device-to-device asynchronous copy
+  cuda::memcpy( m_graph[v].neurons->m_device_memory.ptr(),
+                example.get_device_ptr(),
+                m_graph[v].neurons->m_device_memory.size() );
 }
 
 }
