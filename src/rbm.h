@@ -26,6 +26,7 @@ class Rbm {
     Weights m_W;
     Weights m_W_temp_positive;
     Weights m_W_temp_negative;
+    Weights m_W_statistics;
     float learning_rate;
     float sigmoid_steepness;
     Neurons *m_A;

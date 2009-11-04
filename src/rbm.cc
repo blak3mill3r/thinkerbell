@@ -12,9 +12,10 @@ Rbm::Rbm(Neurons *a, Neurons *b)
   : m_W( a->size() * b->size() ),
     m_W_temp_positive( a->size() * b->size() ),
     m_W_temp_negative( a->size() * b->size() ),
+    m_W_statistics( a->size() ),
     m_A(a),
     m_B(b),
-    learning_rate(0.1),
+    learning_rate(0.01),
     sigmoid_steepness(1.0),
     module_rbm_kernels("rbm_kernels.cubin"),
     kernel_activation_update_amajor(module_rbm_kernels, "activation_update_amajor"),
@@ -32,7 +33,7 @@ Rbm::~Rbm()
 
 void Rbm::randomize_weights()
 {
-  srand(23894); // FIXME
+  srand(time(0));
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
     weights[wi] = ( ( rand() / (float)RAND_MAX ) * RND_SCALE ) + RND_BIAS;
@@ -117,7 +118,9 @@ void Rbm::weight_update( const cuda::Stream &stream )
   kernel_weight_update.setParameter(20, m_W_temp_positive.m_device_memory.ptr() );
   // param 5: weight_type * W_negative
   kernel_weight_update.setParameter(24, m_W_temp_negative.m_device_memory.ptr() );
-  kernel_weight_update.setParameterSize(28);
+  // param 6: weight_type * statistics
+  kernel_weight_update.setParameter(28, m_W_statistics.m_device_memory.ptr() );
+  kernel_weight_update.setParameterSize(32);
 
   kernel_weight_update.setBlockShape(4, 4, 1);
   

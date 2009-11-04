@@ -1,4 +1,4 @@
-#include "abstract_example_factory.h"
+#include "trainers/base.h"
 
 namespace thinkerbell {
 

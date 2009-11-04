@@ -13,6 +13,18 @@ DeepBeliefNetwork::~DeepBeliefNetwork()
 {
 }
 
+float DeepBeliefNetwork::absolute_error( const Vertex &v ) 
+{
+  graph_traits< Graph >::in_edge_iterator in_i, in_end;
+  tie( in_i, in_end ) = in_edges( v, m_graph );
+  m_graph[*in_i].rbm->m_W_statistics.device_to_host();
+  weight_type * f = m_graph[*in_i].rbm->m_W_statistics.weights();
+  int size = m_graph[v].neurons->size();
+  float sum = 0.0;
+  for(int i =0; i< size; ++i) sum += f[i];
+  return sum; 
+}
+
 // create a connection from A to B
 Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
 {
@@ -58,7 +70,7 @@ void DeepBeliefNetwork::debugify()
 // sets activation of a Vertex based on all of its inputs
 void DeepBeliefNetwork::activate_vertex( const Vertex &v, const cuda::Stream &stream )
 {
-  cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
+  //cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
   graph_traits< Graph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
@@ -66,7 +78,7 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v, const cuda::Stream &st
   switch( num_inputs )
   {
     case 0:         // a perceptron blob
-      return;
+      set_neurons_from_example( v, m_example_factory->get_example() );
       break;
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
@@ -80,7 +92,7 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v, const cuda::Stream &st
 // performs a single training iteration (alternating Gibbs sampling and weight update)
 void DeepBeliefNetwork::training_step_vertex( const Vertex &v, const cuda::Stream &stream )
 {
-  cout << "training vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
+  //cout << "training vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
   graph_traits< Graph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
@@ -88,8 +100,9 @@ void DeepBeliefNetwork::training_step_vertex( const Vertex &v, const cuda::Strea
   switch( num_inputs )
   {
     case 0:         // a perceptron blob
-      set_neurons_from_example( v, m_example_factory->get_example() );
-      break;
+      throw 69;     // makes no sense to "train" a perceptron blob, as it's activations are given
+                    // execution ought not reach here anyway
+
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
       m_graph[edge].rbm->training_step(stream);

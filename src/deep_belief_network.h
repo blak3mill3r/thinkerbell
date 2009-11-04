@@ -15,7 +15,7 @@
 #include "types.h"
 #include "neurons.h"
 #include "rbm.h"
-#include "abstract_example_factory.h"
+#include "trainers/base.h"
 #include "training_example.h"
 
 namespace thinkerbell {
@@ -58,6 +58,7 @@ class DeepBeliefNetwork
     void debugify();
     void training_step( const cuda::Stream &stream );
     void set_example_factory( const AbstractTrainer *factory );
+    float absolute_error( const Vertex &v );
   private:
     void activate_vertex( const Vertex &v, const cuda::Stream &stream );
     void training_step_vertex( const Vertex &v, const cuda::Stream &stream );

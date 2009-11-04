@@ -71,20 +71,30 @@ weight_sample( dNeurons A, dNeurons B, weight_type* W, float learning_rate )
 // adds W_positive and subtracts W_negative from W
 // A and B are not modified
 __global__ void
-weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive, weight_type * W_negative )
+weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive, weight_type * W_negative, weight_type * statistics )
 {
   // compute index in A (unique to this thread)
   int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
   int i = bi * (blockDim.x * blockDim.y)
         + (threadIdx.y * blockDim.x) + threadIdx.x;
 
+  float total_delta = 0.0;  // the sum of the changes made to all weights in the following loop
+
   // loop over B computing the sum of W_positive[Ai][Bj] and W_negative[Ai][Bj] and adding the result in W[Ai][Bj]
   for( int j = 0; j < B.size; ++j )
-    W[i * B.size + j] = W[i * B.size + j] + W_positive[i * B.size + j] + W_negative[i * B.size + j];
+  {
+    float delta = W_positive[i * B.size + j]
+                + W_negative[i * B.size + j];
+    W[i * B.size + j] += delta;
+    total_delta += fabsf(delta);
+  }
+
+  statistics[i] = total_delta;
 }
 
 // decays weights
-// A and B are not modified
+// that is, multiplies them by some number "decay" in the range [0, 1]
+// A and B are not modified, they are there for their 'size' member
 __global__ void
 weight_decay( dNeurons A, dNeurons B, weight_type * W, float decay )
 {

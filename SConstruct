@@ -10,7 +10,7 @@ env = Environment(tools=('default', 'cuda'))
 
 env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.environ['HOME']} # Environment variables required by colorgcc.
 env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
-env['CCFLAGS'] = [ '-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
+env['CCFLAGS'] = [ '-Wno-deprecated' ] #'-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
 env['CPPPATH'] = [ './src', '/home/blake/w/cudamm/' ]
 env['LIBS'] = [ 'boost_thread', 'pthread', 'cudamm', 'cuda' ]
 
