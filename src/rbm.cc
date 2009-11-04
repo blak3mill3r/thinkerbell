@@ -156,22 +156,10 @@ inline int Rbm::calculate_blocks()
 
 void Rbm::training_step( const cuda::Stream &stream )
 {
-  activate_b(stream);
+  //activate_b(stream);
   positive_weight_sample(stream);
   activate_a(stream);
   activate_b(stream);
-  negative_weight_sample(stream);
-  weight_update(stream);
-}
-
-// FIXME fuck I hate this name
-// it's the same as the above function but trains A on B instead of vice-versa
-void Rbm::inverted_training_step( const cuda::Stream &stream )
-{
-  activate_a(stream);
-  positive_weight_sample(stream);
-  activate_b(stream);
-  activate_a(stream);
   negative_weight_sample(stream);
   weight_update(stream);
 }

@@ -2,10 +2,10 @@
 #define __TYPES_H__
 
 #include "exceptions.h"
+#include <sys/types.h>
 
 namespace thinkerbell {
 
-typedef unsigned int uint;
 typedef float weight_type;
 typedef float activation_type;
 

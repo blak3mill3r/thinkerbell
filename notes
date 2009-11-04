@@ -3,24 +3,4 @@ todo
   multithreaded host code with boost::thread? or OpenMP?
   struct for each kernel's parameters or a cleaner way to call kernels
 
-graph macro-structure
-  activation by topological sort, like a dependency graph
-  training:
-    up-activate all out-edges of a vertex
-    when all in-edge activations for a vertex are done, compute weight-adjustment
-    all in-edges train together
-to train a given set of edges:
-  training example in
-  activate up to the edge set's source vertices
-  alternating Gibbs sampling
-
-
-weight matrix shared between all out-edges of a vertex
-so Rbm needs to be extended to handle > 2 Neurons
-or does it?
-instead:
-zero out activations, then activate w/ each connected Rbm incrementing activations
-
-tree macro-structure
-  tree< pair< Rbm, Neurons > >
-input Neurons would have NULL Rbm
+ExampleFactory should be called something else ... more generic to encompass not only "training examples" but "data to perceive"

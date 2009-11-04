@@ -19,7 +19,6 @@ class Rbm {
     void weight_update( const cuda::Stream &stream );
     void weight_decay( float decay, const cuda::Stream &stream );
     void training_step(const cuda::Stream &stream );
-    void inverted_training_step( const cuda::Stream &stream );
     
     void randomize_weights();
     void host_to_device();
