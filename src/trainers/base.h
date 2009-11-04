@@ -6,11 +6,11 @@
 
 namespace thinkerbell {
 
-class AbstractExampleFactory
+class AbstractTrainer
 {
   public:
-    AbstractExampleFactory( uint size, uint num_examples );
-    virtual ~AbstractExampleFactory();
+    AbstractTrainer( uint size, uint num_examples );
+    virtual ~AbstractTrainer();
     void upload_examples();
     void upload_examples( const cuda::Stream &stream );
     virtual TrainingExample get_example() const = 0;

@@ -2,7 +2,7 @@
 
 namespace thinkerbell {
 
-AbstractExampleFactory::AbstractExampleFactory( uint size, uint num_examples )
+AbstractTrainer::AbstractTrainer( uint size, uint num_examples )
   : m_example_size(size),
     m_num_examples(num_examples),
     m_device_memory(size * num_examples * sizeof(activation_type))
@@ -17,20 +17,20 @@ AbstractExampleFactory::AbstractExampleFactory( uint size, uint num_examples )
   if(result != CUDA_SUCCESS) { throw memory_exception; }
 }
 
-AbstractExampleFactory::~AbstractExampleFactory()
+AbstractTrainer::~AbstractTrainer()
 {
   CUresult result;
   result = cuMemFreeHost( m_example_pool );
   if(result != CUDA_SUCCESS) { throw memory_exception; }
 }
 
-void AbstractExampleFactory::upload_examples()
+void AbstractTrainer::upload_examples()
 {
   m_device_memory.upload( (void *)m_example_pool );
 }
 
 // asynchronous version of above
-void AbstractExampleFactory::upload_examples( const cuda::Stream &stream )
+void AbstractTrainer::upload_examples( const cuda::Stream &stream )
 {
   cuda::memcpy( m_device_memory.ptr(),
                 (void*)m_example_pool,
