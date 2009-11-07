@@ -85,7 +85,7 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v )
   switch( num_inputs )
   {
     case 0:         // a perceptron blob
-      set_neurons_from_example( v, m_example_factory->get_example() );
+      set_neurons_from_example( v, m_example_trainer->get_example() );
       break;
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
@@ -138,9 +138,9 @@ void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
   }
 }
 
-void DeepBeliefNetwork::set_example_factory( const AbstractTrainer *factory )
+void DeepBeliefNetwork::set_example_trainer( const AbstractTrainer *trainer )
 {
-  m_example_factory = factory;
+  m_example_trainer = trainer;
 }
 
 void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const TrainingExample &example )

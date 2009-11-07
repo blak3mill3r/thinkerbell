@@ -3,6 +3,7 @@
 
 #include "neurons.h"
 #include "weights.h"
+#include <boost/serialization/serialization.hpp>
 
 namespace thinkerbell {
 
@@ -40,8 +41,43 @@ class Rbm {
     cuda::Function kernel_weight_sample;
     cuda::Function kernel_weight_update;
     cuda::Function kernel_weight_decay;
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize( Archive & ar, const unsigned int version )
+    {
+      ar & m_W;
+    }
 };
 
+} // namespace thinkerbell
+
+/*
+namespace boost { namespace serialization {
+
+using thinkerbell::Rbm;
+using thinkerbell::Neurons;
+
+template<class Archive>
+inline void save_construct_data( Archive & ar, const Rbm * t, const unsigned int file_version )
+{
+  // save data required to construct instance
+  ar << t->m_A;
+  ar << t->m_B;
 }
+
+template<class Archive>
+inline void load_construct_data( Archive & ar, Rbm * t, const unsigned int file_version )
+{
+  // retrieve data from archive required to construct new instance
+  Neurons *a, *b;
+  ar >> a;
+  ar >> b;
+  // invoke inplace constructor to initialize instance of Rbm
+  ::new(t)Rbm(a, b);
+}
+
+}} // namespace boost::serialization 
+*/
 
 #endif

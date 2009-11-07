@@ -26,19 +26,19 @@ Neurons::~Neurons()
   if(result != CUDA_SUCCESS) { throw memory_exception; }
 }
 
-uint Neurons::size() { return m_size; }
+uint Neurons::size() const { return m_size; }
 
-void Neurons::host_to_device()
+void Neurons::host_to_device() const
 {
   m_device_memory.upload( (void *)m_activations );
 }
 
-void Neurons::device_to_host()
+void Neurons::device_to_host() const
 {
   m_device_memory.download( (void *)m_activations );
 }
 
-activation_type * Neurons::activations()
+activation_type * Neurons::activations() const
 { return m_activations; }
 
 }

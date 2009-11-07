@@ -24,13 +24,13 @@ AbstractTrainer::~AbstractTrainer()
   if(result != CUDA_SUCCESS) { throw memory_exception; }
 }
 
-void AbstractTrainer::upload_examples()
+void AbstractTrainer::upload_examples() const
 {
   m_device_memory.upload( (void *)m_example_pool );
 }
 
 // asynchronous version of above
-void AbstractTrainer::upload_examples( const cuda::Stream &stream )
+void AbstractTrainer::upload_examples( const cuda::Stream &stream ) const
 {
   cuda::memcpy( m_device_memory.ptr(),
                 (void*)m_example_pool,

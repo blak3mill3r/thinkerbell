@@ -11,8 +11,8 @@ class AbstractTrainer
   public:
     AbstractTrainer( uint size, uint num_examples );
     virtual ~AbstractTrainer();
-    void upload_examples();
-    void upload_examples( const cuda::Stream &stream );
+    void upload_examples() const;
+    void upload_examples( const cuda::Stream &stream ) const;
     virtual TrainingExample get_example() const = 0;
     cuda::DeviceMemory  m_device_memory;
   protected:
