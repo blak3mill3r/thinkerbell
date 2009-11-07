@@ -13,7 +13,12 @@ DeepBeliefNetwork::~DeepBeliefNetwork()
 {
 }
 
-float DeepBeliefNetwork::absolute_error( const Vertex &v ) 
+void DeepBeliefNetwork::set_stream( const cuda::Stream &stream )
+{ m_stream = &stream; }
+
+// call this after training step
+// it returns the average absolute weight adjustment per connection
+float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v ) 
 {
   graph_traits< Graph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
@@ -22,7 +27,9 @@ float DeepBeliefNetwork::absolute_error( const Vertex &v )
   int size = m_graph[v].neurons->size();
   float sum = 0.0;
   for(int i =0; i< size; ++i) sum += f[i];
-  return sum; 
+
+  int numweights = m_graph[*in_i].rbm->m_W.size();
+  return (sum/numweights); 
 }
 
 // create a connection from A to B
@@ -68,7 +75,7 @@ void DeepBeliefNetwork::debugify()
 }
 
 // sets activation of a Vertex based on all of its inputs
-void DeepBeliefNetwork::activate_vertex( const Vertex &v, const cuda::Stream &stream )
+void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 {
   //cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
@@ -83,14 +90,35 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v, const cuda::Stream &st
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
       //Vertex input_vertex = source( edge, m_graph );
-      m_graph[edge].rbm->activate_b(stream);
+      m_graph[edge].rbm->activate_b(*m_stream);
+      break;
+  }
+
+}
+
+// sets activation of a Vertex based on all of its outputs (fantasize)
+void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
+{
+  //cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
+  // get a list of out-edges
+  graph_traits< Graph >::out_edge_iterator out_i, out_end;
+  tie( out_i, out_end ) = out_edges( v, m_graph );
+  uint num_inputs = (out_end - out_i);
+  switch( num_inputs )
+  {
+    case 0:         // the highest-level-neurons ... no outputs ... do nothing
+      break;
+    case 1:         // a blob which is activated by 1 output blob
+      Edge edge = *out_i;
+      //Vertex input_vertex = source( edge, m_graph );
+      m_graph[edge].rbm->activate_a(*m_stream);
       break;
   }
 
 }
 
 // performs a single training iteration (alternating Gibbs sampling and weight update)
-void DeepBeliefNetwork::training_step_vertex( const Vertex &v, const cuda::Stream &stream )
+void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
 {
   //cout << "training vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
@@ -105,7 +133,7 @@ void DeepBeliefNetwork::training_step_vertex( const Vertex &v, const cuda::Strea
 
     case 1:         // a blob which is activated by 1 input blob
       Edge edge = *in_i;
-      m_graph[edge].rbm->training_step(stream);
+      m_graph[edge].rbm->training_step(*m_stream);
       break;
   }
 }
@@ -125,7 +153,7 @@ void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const Trainin
 
 // activates in topological order up to the highest-level-Vertex (the one with no out edges)
 // then performs one training step on that highest-level-Vertex
-void DeepBeliefNetwork::training_step( const cuda::Stream &stream )
+void DeepBeliefNetwork::training_step( )
 {
   list<Vertex> activation_order;
   list<Vertex>::iterator i;
@@ -134,13 +162,56 @@ void DeepBeliefNetwork::training_step( const cuda::Stream &stream )
 
   // activate in topological order
   for (i = activation_order.begin(); i != activation_order.end(); ++i) 
-    activate_vertex( *i, stream );
+    activate_vertex( *i );
 
   // train the highest-level-Vertex
   i = activation_order.end();
   i--;
-  training_step_vertex( *i, stream );
+  training_step_vertex( *i );
 }
+
+// activate forwards/upwards/perceptionwise through the whole graph
+void DeepBeliefNetwork::perceive( )
+{
+  list<Vertex> activation_order;
+  list<Vertex>::iterator i;
+
+  topological_sort(m_graph, std::front_inserter(activation_order));
+
+  // activate in topological order
+  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
+    activate_vertex( *i );
+}
+
+// activate backwards/downwards/fantasywise through the whole graph
+// (note: assumes that the highest level neurons has meaningful activations before this function is called, e.g. right after calling perceive())
+void DeepBeliefNetwork::fantasize( )
+{
+  list<Vertex> activation_order;
+  list<Vertex>::iterator i;
+
+  topological_sort(m_graph, std::back_inserter(activation_order));
+
+  // activate in reverse topological order
+  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
+    inverted_activate_vertex( *i );
+}
+
+// temporary ... grab the last training example and copy it into foo
+// FIXME get rid of it
+activation_type * DeepBeliefNetwork::get_training_example()
+{
+  list<Vertex> activation_order;
+  list<Vertex>::iterator i;
+
+  topological_sort(m_graph, std::front_inserter(activation_order));
+  i = activation_order.begin();
+  Neurons * n = m_graph[*i].neurons;
+  n->device_to_host();
+  return n->activations();
+
+}
+
 
 }
 

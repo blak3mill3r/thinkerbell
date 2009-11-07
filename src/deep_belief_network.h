@@ -56,16 +56,22 @@ class DeepBeliefNetwork
     Vertex add_neurons( uint num_neurons, const std::string name = "anonymous neurons" );
     Edge connect( const Vertex &va, const Vertex &vb );
     void debugify();
-    void training_step( const cuda::Stream &stream );
+    void training_step();
     void set_example_factory( const AbstractTrainer *factory );
-    float absolute_error( const Vertex &v );
+    float average_weight_adjustment( const Vertex &v );
+    void perceive();
+    void fantasize();
+    void set_stream( const cuda::Stream &stream );
+    activation_type * get_training_example();
   private:
-    void activate_vertex( const Vertex &v, const cuda::Stream &stream );
-    void training_step_vertex( const Vertex &v, const cuda::Stream &stream );
+    void activate_vertex( const Vertex &v );
+    void inverted_activate_vertex( const Vertex &v );
+    void training_step_vertex( const Vertex &v );
     // FIXME think of a better name for set_neurons_from_example
     void set_neurons_from_example( const Vertex &v, const TrainingExample &example );
     Graph m_graph;
     const AbstractTrainer * m_example_factory;
+    const cuda::Stream * m_stream;
 };
 
 }
