@@ -14,7 +14,7 @@ def generate_actions(source, target, env, for_signature):
 
 def generate(env):
         # default flags for the NVCC compiler
-        env['NVCCFLAGS'] = '-I' + " -I".join( [ './src', '/home/blake/src/cudamm/' ] )
+        env['NVCCFLAGS'] = '-I' + " -I".join( [ './src', './include', '/home/blake/src/cudamm/' ] )
 
         # helpers
         home=os.environ.get('HOME', '')

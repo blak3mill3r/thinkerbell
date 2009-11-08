@@ -15,7 +15,7 @@ Rbm::Rbm(Neurons *a, Neurons *b)
     m_W_statistics( a->size() ),
     m_A(a),
     m_B(b),
-    learning_rate(0.01),
+    learning_rate(0.1),
     sigmoid_steepness(1.0),
     module_rbm_kernels("rbm_kernels.cubin"),
     kernel_activation_update_amajor(module_rbm_kernels, "activation_update_amajor"),

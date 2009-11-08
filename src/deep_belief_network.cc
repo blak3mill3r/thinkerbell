@@ -46,6 +46,9 @@ Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
   m_graph[e].rbm->randomize_weights();
   m_graph[e].rbm->m_W.host_to_device();
 
+  // the graph has changed
+  update_topological_order();
+
   return e;
 }
 
@@ -57,21 +60,11 @@ Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name 
   // create a new Neurons and assign it to the new vertex
   m_graph[v].name = name;
   m_graph[v].neurons = new Neurons(num_neurons);  //FIXME
+
+  // the graph has changed
+  update_topological_order();
+
   return v;
-}
-
-void DeepBeliefNetwork::debugify()
-{
-  list<Vertex> activation_order;
-  list<Vertex>::iterator i;
-
-  topological_sort(m_graph, front_inserter(activation_order));
-  cout << "activation ordering: ";
-  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
-    cout << *i << " ";
-  
-  cout << endl << endl;
-
 }
 
 // sets activation of a Vertex based on all of its inputs
@@ -106,7 +99,7 @@ void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
   uint num_inputs = (out_end - out_i);
   switch( num_inputs )
   {
-    case 0:         // the highest-level-neurons ... no outputs ... do nothing
+    case 0:         // the highest-level-neurons ... no-op (it had better have meaningful activations before this function is called)
       break;
     case 1:         // a blob which is activated by 1 output blob
       Edge edge = *out_i;
@@ -151,67 +144,53 @@ void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const Trainin
                 m_graph[v].neurons->m_device_memory.size() );
 }
 
-// activates in topological order up to the highest-level-Vertex (the one with no out edges)
-// then performs one training step on that highest-level-Vertex
+void DeepBeliefNetwork::update_topological_order()
+{
+  topological_order.clear();
+  topological_sort(m_graph, std::front_inserter(topological_order));
+}
+
+// perception through the whole graph
+// then performs one training step on the highest-level-Vertex
 void DeepBeliefNetwork::training_step( )
 {
-  list<Vertex> activation_order;
-  list<Vertex>::iterator i;
-
-  topological_sort(m_graph, std::front_inserter(activation_order));
-
-  // activate in topological order
-  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
-    activate_vertex( *i );
+  perceive();
 
   // train the highest-level-Vertex
-  i = activation_order.end();
-  i--;
-  training_step_vertex( *i );
+  training_step_vertex( topological_order.back() );
 }
 
 // activate forwards/upwards/perceptionwise through the whole graph
 void DeepBeliefNetwork::perceive( )
 {
-  list<Vertex> activation_order;
-  list<Vertex>::iterator i;
-
-  topological_sort(m_graph, std::front_inserter(activation_order));
-
   // activate in topological order
-  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
-    activate_vertex( *i );
+  for_each( topological_order.begin(),
+            topological_order.end(),
+            bind(&DeepBeliefNetwork::activate_vertex, this, _1 )
+          );
 }
 
 // activate backwards/downwards/fantasywise through the whole graph
 // (note: assumes that the highest level neurons has meaningful activations before this function is called, e.g. right after calling perceive())
 void DeepBeliefNetwork::fantasize( )
 {
-  list<Vertex> activation_order;
-  list<Vertex>::iterator i;
-
-  topological_sort(m_graph, std::back_inserter(activation_order));
-
   // activate in reverse topological order
-  for (i = activation_order.begin(); i != activation_order.end(); ++i) 
-    inverted_activate_vertex( *i );
+  for_each( topological_order.rbegin(),
+            topological_order.rend(),
+            bind(&DeepBeliefNetwork::inverted_activate_vertex, this, _1 )
+          );
 }
 
-// temporary ... grab the last training example and copy it into foo
+// temporary ... grab the last training example and return a pointer to it
 // FIXME get rid of it
 activation_type * DeepBeliefNetwork::get_training_example()
 {
-  list<Vertex> activation_order;
-  list<Vertex>::iterator i;
-
-  topological_sort(m_graph, std::front_inserter(activation_order));
-  i = activation_order.begin();
-  Neurons * n = m_graph[*i].neurons;
+  Neurons * n = m_graph[topological_order.front()].neurons;
+  // copy back from device
   n->device_to_host();
+  // return a pointer to the activations
   return n->activations();
-
 }
-
 
 }
 
