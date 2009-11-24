@@ -9,7 +9,7 @@ src_path = env.Dir('../src').abspath
 include_path = env.Dir('../include').abspath
 
 testEnv = testEnv.Clone()
-testEnv.AppendUnique(LIBPATH=[lib_path], LIBS=['thinkerbell', 'boost_thread', 'pthread', 'cudamm', 'cuda'])
+testEnv.AppendUnique(LIBPATH=[lib_path], LIBS=['thinkerbell', 'boost_thread-mt', 'pthread', 'cudamm', 'cuda'])
 testEnv['CPPPATH'] = [ src_path, include_path, '/home/blake/w/cudamm/' ]
 testEnv['LIBPATH'] = [ './', '/home/blake/w/thinkerbell/lib/', '/usr/local/lib', '/usr/local/cuda/lib/' ]
 testEnv['LD_LIBRARY_PATH'] = lib_path

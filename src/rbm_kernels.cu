@@ -6,6 +6,7 @@ using namespace thinkerbell;
 /*
  * Device code:
  * note that only certain sizes are acceptable for the input arrays
+ * currently they have to be multiples of 16 ( the number of threads per block )
  */
 
 // the sigmoid function

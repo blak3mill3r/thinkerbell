@@ -4,6 +4,7 @@
  * NOTE part of the implementation of this class is in rbm.cu
  */
 
+#include <iostream>
 #include "rbm.h"
 
 namespace thinkerbell {
@@ -28,15 +29,13 @@ Rbm::Rbm(Neurons *a, Neurons *b)
 Rbm::~Rbm()
 { }
 
-#define RND_SCALE  (0.01f)
-#define RND_BIAS   (0.01f)
-
 void Rbm::randomize_weights()
 {
-  srand(time(0));
+  float scale = 0.01;
+  float bias = -scale;
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
-    weights[wi] = ( ( rand() / (float)RAND_MAX ) * RND_SCALE ) + RND_BIAS;
+    weights[wi] = ( ( rand() / (float)RAND_MAX ) * scale ) + bias ;
 }
 
 void Rbm::activate_a(const cuda::Stream &stream)
@@ -159,7 +158,8 @@ inline int Rbm::calculate_blocks()
 
 void Rbm::training_step( const cuda::Stream &stream )
 {
-  //activate_b(stream);
+  weight_decay( 0.999999, stream);
+  activate_b(stream); // FIXME probably unneccesary
   positive_weight_sample(stream);
   activate_a(stream);
   activate_b(stream);

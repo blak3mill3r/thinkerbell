@@ -12,7 +12,7 @@ env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.en
 env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
 env['CCFLAGS'] = [ '-Wno-deprecated' ] #'-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
 env['CPPPATH'] = [ './src', './include', '/home/blake/w/cudamm/' ]
-env['LIBS'] = [ 'cudamm', 'cuda', 'jack', 'boost_serialization' ]
+env['LIBS'] = [ 'cudamm', 'cuda', 'jack', 'boost_serialization-mt' ]
 
 if ARGUMENTS.get('debug', 0):
     env['CCFLAGS'] += ['-g' ]
@@ -31,7 +31,7 @@ testEnv = env.Clone()
 testEnv.Tool('unittest',
          toolpath=['tools'],
          UTEST_MAIN_SRC=File('tools/boost_auto_test_main.cc'),
-         LIBS=['boost_unit_test_framework']
+         LIBS=['boost_unit_test_framework-mt']
  )
 
 Export('testEnv')

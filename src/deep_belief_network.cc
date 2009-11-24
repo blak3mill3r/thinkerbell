@@ -70,7 +70,6 @@ Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name 
 // sets activation of a Vertex based on all of its inputs
 void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 {
-  //cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
   graph_traits< Graph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
@@ -92,7 +91,6 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 // sets activation of a Vertex based on all of its outputs (fantasize)
 void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
 {
-  //cout << "activating vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of out-edges
   graph_traits< Graph >::out_edge_iterator out_i, out_end;
   tie( out_i, out_end ) = out_edges( v, m_graph );
@@ -113,7 +111,6 @@ void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
 // performs a single training iteration (alternating Gibbs sampling and weight update)
 void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
 {
-  //cout << "training vertex " << v << "\t\"" << m_graph[v].name << "\"" << endl;
   // get a list of in-edges
   graph_traits< Graph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );

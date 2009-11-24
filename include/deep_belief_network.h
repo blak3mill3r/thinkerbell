@@ -15,6 +15,8 @@
 #include <boost/graph/adj_list_serialize.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/lambda/bind.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/serialization/scoped_ptr.hpp>
 
 #include "types.h"
 #include "neurons.h"
@@ -27,6 +29,7 @@ using namespace std;
 using namespace boost;
 using namespace boost::lambda;
 
+// stores all data unique to a vertex
 struct VertexProperties
 {
     string name;
@@ -43,6 +46,7 @@ struct VertexProperties
     }
 };
 
+// stores all data unique to a edge
 struct EdgeProperties
 {
     uint total_input_samples, count_input_samples;
@@ -57,6 +61,8 @@ struct EdgeProperties
     }
 };
 
+// our graph data type
+//  a bidirectional adjacency list with vectors for both vertices and edges
 typedef adjacency_list<
   vecS,               // out edge vector
   vecS,               // vertex vector
@@ -68,6 +74,13 @@ typedef adjacency_list<
 typedef graph_traits<Graph>::vertex_descriptor Vertex;
 typedef graph_traits<Graph>::edge_descriptor Edge;
 
+// a DeepBeliefNetwork is a graph with a Neurons instance at each vertex and an Rbm instance at each edge
+// Edges represent connected Neurons pairs
+// activating the target based on the source is "perceiving"
+// activating the source based on the target is "fantasizing"
+// a Node with no in-edges is an "input" Node
+// a Node with no out-edges is a "output" Node
+// Nodes with multiple in-edges or multiple out-edges is not implemented yet (in other words the graph might as well be a list at this point)
 class DeepBeliefNetwork
 {
   public:
@@ -98,10 +111,17 @@ class DeepBeliefNetwork
   private:
     friend class boost::serialization::access;
     template<class Archive>
-    void serialize( Archive & ar, const unsigned int version )
+    void save( Archive & ar, const unsigned int version ) const
     {
-      ar & m_graph;
+      ar << m_graph;
     }
+    template<class Archive>
+    void load( Archive & ar, const unsigned int version )
+    {
+      ar >> m_graph;
+      update_topological_order();
+    }
+    BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
 } // namespace thinkerbell
