@@ -65,14 +65,15 @@ weight_sample( dNeurons A, dNeurons B, weight_type* W, float learning_rate )
 
   // loop over B computing the product of Ai and Bj and storing it in the weight space
   for( int j = 0; j < B.size; ++j )
-    W[i * B.size + j] = A.activations[i] * B.activations[j] * learning_rate;
+    W[i * B.size + j] += (A.activations[i] * B.activations[j] * learning_rate);
   
 }
 
-// adds W_positive and subtracts W_negative from W
+// adds W_scratch to W
 // A and B are not modified
+// statistics is for monitoring the magnitude of the changes
 __global__ void
-weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive, weight_type * W_negative, weight_type * statistics )
+weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_scratch, weight_type * statistics )
 {
   // compute index in A (unique to this thread)
   int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
@@ -81,11 +82,11 @@ weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_positive
 
   float total_delta = 0.0;  // the sum of the changes made to all weights in the following loop
 
-  // loop over B computing the sum of W_positive[Ai][Bj] and W_negative[Ai][Bj] and adding the result in W[Ai][Bj]
+  // loop over B adding W_scratch[Ai][Bj] to W[Ai][Bj]
   for( int j = 0; j < B.size; ++j )
   {
-    float delta = W_positive[i * B.size + j]
-                + W_negative[i * B.size + j];
+    float delta = W_scratch[i * B.size + j];
+    W_scratch[i * B.size + j] = 0.0;
     W[i * B.size + j] += delta;
     total_delta += fabsf(delta);
   }

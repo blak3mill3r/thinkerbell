@@ -5,6 +5,8 @@ CUDA Tool for SCons
 
 """
 
+import ovioiusfiuckinerror
+
 import os
 import SCons.Tool
 import SCons.Scanner.C

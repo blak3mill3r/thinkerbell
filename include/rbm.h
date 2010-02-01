@@ -25,8 +25,7 @@ class Rbm {
     void host_to_device();
     void device_to_host();
     Weights m_W;
-    Weights m_W_temp_positive;
-    Weights m_W_temp_negative;
+    Weights m_W_scratch;
     Weights m_W_statistics;
     float learning_rate;
     float sigmoid_steepness;

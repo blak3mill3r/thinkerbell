@@ -1,18 +1,19 @@
 /*
  * Class Rbm
  * Encapsulates two instances of Neurons and a Weights
- * NOTE part of the implementation of this class is in rbm.cu
+ * exposes operations which invoke cuda kernels
  */
 
 #include <iostream>
 #include "rbm.h"
 
+#define THREADS_PER_BLOCK 16
+
 namespace thinkerbell {
 
 Rbm::Rbm(Neurons *a, Neurons *b)
   : m_W( a->size() * b->size() ),
-    m_W_temp_positive( a->size() * b->size() ),
-    m_W_temp_negative( a->size() * b->size() ),
+    m_W_scratch( a->size() * b->size() ),
     m_W_statistics( a->size() ),
     m_A(a),
     m_B(b),
@@ -24,7 +25,10 @@ Rbm::Rbm(Neurons *a, Neurons *b)
     kernel_weight_sample(module_rbm_kernels, "weight_sample"),
     kernel_weight_update(module_rbm_kernels, "weight_update"),
     kernel_weight_decay(module_rbm_kernels, "weight_decay")
-{ }
+{
+  // zero the weight scratch space
+  m_W_scratch.m_device_memory.set32( static_cast<unsigned int>( 0.0f ) );
+}
 
 Rbm::~Rbm()
 { }
@@ -75,14 +79,14 @@ void Rbm::activate_b(const cuda::Stream &stream)
   
   kernel_activation_update_bmajor.setBlockShape(4, 4, 1);
   
-  kernel_activation_update_bmajor.launch( (m_B->size() / 0x10), 1, stream);
+  kernel_activation_update_bmajor.launch( (m_B->size() / THREADS_PER_BLOCK), 1, stream);
 }
 
 void Rbm::positive_weight_sample(const cuda::Stream &stream)
-{ weight_sample(stream, m_W_temp_positive, 1.0); }
+{ weight_sample(stream, m_W_scratch, 1.0); }
 
 void Rbm::negative_weight_sample(const cuda::Stream &stream)
-{ weight_sample(stream, m_W_temp_negative, -1.0); }
+{ weight_sample(stream, m_W_scratch, -1.0); }
 
 void Rbm::weight_sample(const cuda::Stream &stream, Weights &W_temp, float learning_rate_multiplier)
 {
@@ -113,13 +117,11 @@ void Rbm::weight_update( const cuda::Stream &stream )
   kernel_weight_update.setParameter(12, m_B->m_device_memory.ptr() );
   // param 3: weight_type * W
   kernel_weight_update.setParameter(16, m_W.m_device_memory.ptr() );
-  // param 4: weight_type * W_positive
-  kernel_weight_update.setParameter(20, m_W_temp_positive.m_device_memory.ptr() );
-  // param 5: weight_type * W_negative
-  kernel_weight_update.setParameter(24, m_W_temp_negative.m_device_memory.ptr() );
+  // param 4: weight_type * W_scratch
+  kernel_weight_update.setParameter(20, m_W_scratch.m_device_memory.ptr() );
   // param 6: weight_type * statistics
-  kernel_weight_update.setParameter(28, m_W_statistics.m_device_memory.ptr() );
-  kernel_weight_update.setParameterSize(32);
+  kernel_weight_update.setParameter(24, m_W_statistics.m_device_memory.ptr() );
+  kernel_weight_update.setParameterSize(28);
 
   kernel_weight_update.setBlockShape(4, 4, 1);
   
@@ -148,12 +150,11 @@ void Rbm::weight_decay( float decay, const cuda::Stream &stream )
 
 inline int Rbm::calculate_blocks()
 {
-  int num_weights = m_A->size() * m_B->size();
-  if(    (num_weights % 0x10 != 0)            // all of this must be multiples of 16 for performance reasons (16 is the number of threads per block for all rbm kernels)
-      || (m_A->size() % 0x10 != 0)
-      || (m_B->size() % 0x10 != 0)
+  // these must be multiples of THREADS_PER_BLOCK for performance reasons (16 is the number of threads per block for all rbm kernels)
+  if(    (m_A->size() % THREADS_PER_BLOCK != 0)
+      || (m_B->size() % THREADS_PER_BLOCK != 0)
     ) { throw 69; } // FIXME
-  return (m_A->size() / 0x10);
+  return (m_A->size() / THREADS_PER_BLOCK);
 }
 
 void Rbm::training_step( const cuda::Stream &stream )
