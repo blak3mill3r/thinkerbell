@@ -14,10 +14,10 @@ env['CCFLAGS'] = [ '-Wno-deprecated' ] #'-Wall', '-W', '-Wshadow', '-Wpointer-ar
 env['CPPPATH'] = [ './src', './include', '/home/blake/w/cudamm/' ]
 env['LIBS'] = [ 'cudamm', 'cuda', 'jack', 'boost_serialization-mt' ]
 
-if ARGUMENTS.get('debug', 0):
-    env['CCFLAGS'] += ['-g' ]
-else:
-    env['CCFLAGS'] += ['-O3' ]
+#if ARGUMENTS.get('debug', 0):
+env['CCFLAGS'] += ['-g' ]
+#else:
+#    env['CCFLAGS'] += ['-O3' ]
 
 env.SharedLibrary( source = libthinkerbell_sources, target = 'lib/thinkerbell' )
 env.Cubin( 'src/rbm_kernels', NVCCPATH = env['CPPPATH'] )

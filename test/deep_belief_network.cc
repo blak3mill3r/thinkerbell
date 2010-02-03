@@ -1,3 +1,4 @@
+/*
 #ifdef KFKLJSKFLJFLSKFJLSKJL
 
 #include <boost/test/unit_test.hpp>
@@ -168,7 +169,6 @@ BOOST_AUTO_TEST_CASE( deepBeliefNetwork )
     exit (1);
   }
 
-  /* SHOWTIME */
   if (jack_activate (client)) {
     fprintf (stderr, "cannot activate client");
     exit (1);
@@ -333,3 +333,4 @@ BOOST_AUTO_TEST_CASE( deepBeliefNetwork )
 }
 
 #endif
+  */
