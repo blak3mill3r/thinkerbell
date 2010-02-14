@@ -42,7 +42,7 @@ def generate(env):
         env['NVCC'] = 'nvcc'
 
         # default flags for the NVCC compiler
-        env['NVCCFLAGS'] = ''
+        env['NVCCFLAGS'] = '-arch=sm_13'
         env['STATICNVCCFLAGS'] = ''
         env['SHAREDNVCCFLAGS'] = ''
         env['ENABLESHAREDNVCCFLAG'] = '-shared'
