@@ -84,11 +84,11 @@ mmul( float* C, float* A, float* B, int wA, int wB)
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Matrix multiplication on the device: C = A-transposed * B
-//! wA is A's width and wB is B's width
+//! hA is A's height (also known as A-transposed's width) and wB is B's width
 ////////////////////////////////////////////////////////////////////////////////
 extern "C"
 __global__ void
-mmul_transpose_a( float* C, float* A, float* B, int wA, int wB)
+mmul_transpose_a( float* C, float* A, float* B, int hA, int wB)
 {
     // Block index
     int bx = blockIdx.x;
@@ -98,14 +98,17 @@ mmul_transpose_a( float* C, float* A, float* B, int wA, int wB)
     int tx = threadIdx.x;
     int ty = threadIdx.y;
 
+    // a width:
+    int wA = gridDim.x * BLOCK_SIZE;
+
     // Index of the first sub-matrix of A processed by the block
-    int aBegin = wA * BLOCK_SIZE * by;
+    int aBegin = BLOCK_SIZE * by;
 
     // Index of the last sub-matrix of A processed by the block
-    int aEnd   = aBegin + wA - 1;
+    int aEnd   = aBegin + (wA * (hA-1) );
 
     // Step size used to iterate through the sub-matrices of A
-    int aStep  = BLOCK_SIZE;
+    int aStep  = BLOCK_SIZE * wA;
 
     // Index of the first sub-matrix of B processed by the block
     int bBegin = BLOCK_SIZE * bx;
@@ -119,7 +122,7 @@ mmul_transpose_a( float* C, float* A, float* B, int wA, int wB)
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
-    for (int a = aBegin - 1, b = bBegin;
+    for (int a = aBegin, b = bBegin;
              a <= aEnd;
              a += aStep, b += bStep) {
 
