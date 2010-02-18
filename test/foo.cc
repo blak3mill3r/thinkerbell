@@ -227,11 +227,13 @@ BOOST_AUTO_TEST_CASE( foo )
             goto fail2;
           }
       }
+  goto skipdebug;
+
   fail2:
   cout << "done" << endl;
 
 
-  //#define DEBUG_PRINT2
+  #define DEBUG_PRINT2
   #ifdef DEBUG_PRINT2
   cout << "A" << endl;
   cout << endl;
@@ -261,6 +263,7 @@ BOOST_AUTO_TEST_CASE( foo )
       if(h_C[y * WCtA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtA + x] << endl; }
   }
   #endif
+  skipdebug:
 
   free(h_A);
   free(h_B);

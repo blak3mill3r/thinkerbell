@@ -6,13 +6,13 @@
 
 // Matrix dimensions
 // (chosen as multiples of the thread block size for simplicity)
-#define WA (0x2 * BLOCK_SIZE) // Matrix A width
-#define HA (0x3 * BLOCK_SIZE) // Matrix A height
+#define WA (0x10 * BLOCK_SIZE) // Matrix A width    2 fail
+#define HA (0x11 * BLOCK_SIZE) // Matrix A height   2 OK
 
 #define WAt HA
 #define HAt WA
 
-#define WB (0x4 * BLOCK_SIZE) // Matrix B width
+#define WB (0x12 * BLOCK_SIZE) // Matrix B width   2 fail
 #define HB WAt  // Matrix B height
 
 #define WCtA WB  // Matrix C width 
