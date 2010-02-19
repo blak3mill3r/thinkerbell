@@ -1,6 +1,29 @@
 todo
   singleton cubin loader with a map<std::string, cuda::Program>? mt probs
   multithreaded host code with boost::thread? or OpenMP?
-  struct for each kernel's parameters or a cleaner way to call kernels
 
-ExampleFactory should be called something else ... more generic to encompass not only "training examples" but "data to perceive"
+
+move all the cuda::DeviceMemory objects into DeepBeliefNetwork
+  * activation buffer for each vertex in current training phase (one is the original examples)
+  * weight buffer for each edge in current training phase
+  * weight scratch buffer for the last edge in current training phase
+
+DeepBeliefNetwork should have a thread-safe member function "activation worker"
+  * waits on a condition (block-of-inputs-ready)
+  * processes the block
+  * notifies on condition to next level
+
+DeepBeliefNetwork should have a thread-safe member function "weight sample worker"
+  * waits on condition (two-blocks-of-top-level-neurons-ready)
+  * processes the block
+  if enough stuff has piled up
+    * notifies on condition (weight-updates-ready)
+    * waits on condition (full-buffer)
+
+DeepBeliefNetwork should have a thread-safe member function "weight sample collection worker"
+  * waits on conditions (weight-updates-ready)
+  * sums the pending weight update blocks, writes to weight buffer for current edge
+  ** this one needs top-level activation workers to wait on it since it's modifying a weight buffer
+
+  
+
