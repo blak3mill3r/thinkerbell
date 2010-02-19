@@ -60,7 +60,8 @@ BOOST_AUTO_TEST_CASE( foo )
   unsigned int size_B = WB * HB;
   unsigned int mem_size_B = sizeof(float) * size_B;
   float* h_B = (float*) malloc(mem_size_B);
-  unsigned int size_C = WCtA * HCtA;
+  float* h_B_transposed = (float*) malloc(mem_size_B);
+  unsigned int size_C = WCtB * HCtB;
   unsigned int mem_size_C = sizeof(float) * size_C;
   float* h_C = (float*) malloc(mem_size_C);
 
@@ -68,12 +69,14 @@ BOOST_AUTO_TEST_CASE( foo )
   randomInit(h_A, size_A);
   randomInit(h_B, size_B);
   transposeInit( h_A, h_A_transposed, WA, HA );
+  transposeInit( h_B, h_B_transposed, WB, HB );
 
   cuda::Cuda cuda_context(0);
   cuda::Stream stream;
   cuda::Module module_test_kernels("src/test_kernels.cubin");
   cuda::Function matrixMul( module_test_kernels, "mmul" );
-  cuda::Function matrixMulTransposed( module_test_kernels, "mmul_transpose_a" );
+  cuda::Function matrixMulTransposedA( module_test_kernels, "mmul_transpose_a" );
+  cuda::Function matrixMulTransposedB( module_test_kernels, "mmul_transpose_b" );
 
   cuda::DeviceMemory d_A( mem_size_A );
   cuda::DeviceMemory d_B( mem_size_B );
@@ -83,14 +86,14 @@ BOOST_AUTO_TEST_CASE( foo )
   int wB = WB;
 
   cout << "Upload...";
-  d_A.upload( (void*)h_A_transposed );
-  d_B.upload( (void*)h_B );
+  d_A.upload( (void*)h_A );
+  d_B.upload( (void*)h_B_transposed );
   if(!stream.query()) { stream.synchronize(); }
   cout << "done" << endl
        << "Launch!...";
 
   matrixMul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-  matrixMul.go( WCtA / BLOCK_SIZE, HCtA / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), HA, wB );
+  matrixMul.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
   if(!stream.query()) { stream.synchronize(); }
 
   cout << "done" << endl
@@ -104,17 +107,17 @@ BOOST_AUTO_TEST_CASE( foo )
   if(!stream.query()) { stream.synchronize(); }
 
   // check the result:
-  for( int cy = 0; cy < HCtA; ++cy )
-    for( int cx = 0; cx < WCtA; ++cx )
+  for( int cy = 0; cy < HCtB; ++cy )
+    for( int cx = 0; cx < WCtB; ++cx )
       {
-        int ci = (cy * WCtA) + cx;
+        int ci = (cy * WCtB) + cx;
         // calculate C[cx][cy]
         float v = 0.0;
-        for( int k = 0; k < HB; ++k)
+        for( int k = 0; k < HBt; ++k)
           {
-            int ai = (WAt * cy) + k;
-            int bi = (WB * k) + cx;
-            v += (h_A_transposed[ai] * h_B[bi]);
+            int ai = (WA * cy) + k;
+            int bi = (WBt * k) + cx;
+            v += (h_A[ai] * h_B_transposed[bi]);
           }
         float devicev = h_C[ci];
         float error = abs(v - devicev );
@@ -149,13 +152,6 @@ BOOST_AUTO_TEST_CASE( foo )
       if(h_A[y * WA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A[y * WA + x] << endl; }
   }
 
-  cout << "At" << endl;
-  cout << endl;
-  for( int y = 0; y < HAt; ++y ) {
-    for( int x = 0; x < WAt; ++x )
-      if(h_A_transposed[y * WAt + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A_transposed[y * WAt + x] << endl; }
-  }
-
   cout << "B" << endl;
   cout << endl;
   for( int y = 0; y < HB; ++y ) {
@@ -165,9 +161,9 @@ BOOST_AUTO_TEST_CASE( foo )
 
   cout << "C" << endl;
   cout << endl;
-  for( int y = 0; y < HCtA; ++y ) {
-    for( int x = 0; x < WCtA; ++x )
-      if(h_C[y * WCtA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtA + x] << endl; }
+  for( int y = 0; y < HCtB; ++y ) {
+    for( int x = 0; x < WCtB; ++x )
+      if(h_C[y * WCtB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtB + x] << endl; }
   }
   #endif
 
@@ -181,8 +177,8 @@ BOOST_AUTO_TEST_CASE( foo )
   cout << "done" << endl
        << "Launch!...";
 
-  matrixMulTransposed.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-  matrixMulTransposed.go( WCtA / BLOCK_SIZE, HCtA / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), HA, wB );
+  matrixMulTransposedB.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+  matrixMulTransposedB.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
   cout << "done" << endl
        << "Download...";
 
@@ -194,17 +190,17 @@ BOOST_AUTO_TEST_CASE( foo )
   if(!stream.query()) { stream.synchronize(); }
 
   // check the result:
-  for( int cy = 0; cy < HCtA; ++cy )
-    for( int cx = 0; cx < WCtA; ++cx )
+  for( int cy = 0; cy < HCtB; ++cy )
+    for( int cx = 0; cx < WCtB; ++cx )
       {
-        int ci = (cy * WCtA) + cx;
+        int ci = (cy * WCtB) + cx;
         // calculate C[cx][cy]
         float v = 0.0;
-        for( int k = 0; k < HB; ++k)
+        for( int k = 0; k < HBt; ++k)
           {
-            int ai = (WAt * cy) + k;
-            int bi = (WB * k) + cx;
-            v += (h_A_transposed[ai] * h_B[bi]);
+            int ai = (WA * cy) + k;
+            int bi = (WBt * k) + cx;
+            v += (h_A[ai] * h_B_transposed[bi]);
           }
         float devicev = h_C[ci];
         float error = abs(v - devicev );
@@ -242,13 +238,6 @@ BOOST_AUTO_TEST_CASE( foo )
       if(h_A[y * WA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A[y * WA + x] << endl; }
   }
 
-  cout << "At" << endl;
-  cout << endl;
-  for( int y = 0; y < HAt; ++y ) {
-    for( int x = 0; x < WAt; ++x )
-      if(h_A_transposed[y * WAt + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A_transposed[y * WAt + x] << endl; }
-  }
-
   cout << "B" << endl;
   cout << endl;
   for( int y = 0; y < HB; ++y ) {
@@ -256,17 +245,26 @@ BOOST_AUTO_TEST_CASE( foo )
       if(h_B[y * WB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_B[y * WB + x] << endl; }
   }
 
+  cout << "Bt" << endl;
+  cout << endl;
+  for( int y = 0; y < HBt; ++y ) {
+    for( int x = 0; x < WBt; ++x )
+      if(h_B_transposed[y * WBt + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_B_transposed[y * WBt + x] << endl; }
+  }
+
   cout << "C" << endl;
   cout << endl;
-  for( int y = 0; y < HCtA; ++y ) {
-    for( int x = 0; x < WCtA; ++x )
-      if(h_C[y * WCtA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtA + x] << endl; }
+  for( int y = 0; y < HCtB; ++y ) {
+    for( int x = 0; x < WCtB; ++x )
+      if(h_C[y * WCtB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtB + x] << endl; }
   }
   #endif
   skipdebug:
 
   free(h_A);
+  free(h_A_transposed);
   free(h_B);
+  free(h_B_transposed);
   free(h_C);
 
 

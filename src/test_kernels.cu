@@ -129,5 +129,50 @@ mmul_transpose_a( float* C, float* A, float* B, int wAt, int wB)
     C[c + wB * ty + tx] = Csub;
 }
 
+extern "C"
+__global__ void
+mmul_transpose_b( float* C, float* A, float* B, int wA)
+{
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+
+    int wB = wA;  //necessarily ... this should be checked by host code probably
+
+    int aBegin = wA * BLOCK_SIZE * by;
+
+    int aEnd   = aBegin + wA - 1;
+
+    int aStep  = BLOCK_SIZE;
+
+    int bBegin = wB * BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE;
+
+    int wC = gridDim.x * BLOCK_SIZE;
+
+    float Csub = 0;
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[ty][tx] = A[a + wA * ty + tx];
+        Bs[tx][ty] = B[b + wB * ty + tx]; // note transposed B
+
+        __syncthreads();
+
+        for (int k = 0; k < BLOCK_SIZE; ++k)
+          Csub += As[ty][k] * Bs[k][tx];
+
+        __syncthreads();
+    }
+
+    int c = wC * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+    C[c + wC * ty + tx] = Csub;
+}
+
 
 #endif
