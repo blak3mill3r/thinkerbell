@@ -27,3 +27,17 @@ DeepBeliefNetwork should have a thread-safe member function "weight sample colle
 
   
 
+Producer/Consumer
+
+a monitor class for each edge in the training process, synchronizing production/consumption of activations (both ways, up & down)
+that class should have four condition vars and 2 mutexen
+
+
+ACTIVATE worker
+------------------
+consumer of A-activations
+producer of B-activations
+
+
+condition full, empty
+

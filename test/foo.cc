@@ -1,271 +1,180 @@
-#define _NONSONOSN
-#ifdef _NONSONOSN
+#define _DOTHREADSTEST
+#ifdef _DOTHREADSTEST
 
+#include <boost/thread/condition.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/xtime.hpp>
+#include <boost/shared_ptr.hpp>
+#include <deque>
+#include <vector>
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <iomanip>
-#include <weights.h>
-#include <neurons.h>
-#include <deep_belief_network.h>
 #include <cudamm/cuda.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include "tmp.h"
 
 #define BOOST_TEST_MODULE thinkerbell_test_suite
 
-// Allocates a matrix with random float entries.
-void randomInit(float* data, int size)
-{
-    for (int i = 0; i < size; ++i)
-      data[i] = rand() / (float)RAND_MAX;
-/*
-        if((rand() / (float)RAND_MAX) > 0.90)
-          {
-            data[i] = 0.5;
-          }
-        else
-          {
-            data[i] = 0.0;
-          }
-*/
-}
-
-// width,height is src width,height
-void transposeInit( float* src, float* dst, int width, int height )
-{
-  for( int y = 0; y < height; ++y)
-    for( int x = 0; x < width; ++x)
-      {
-        dst[ x*height + y ] = src[ y*width + x ];
-      }
-}
-
-void zeroInit(float* data, int size)
-{
-    for (int i = 0; i < size; ++i)
-        data[i] = 0.0f;
-}
-
 using namespace std;
+using namespace cuda;
+
+#define WITH_LOGGING
+// if you want logging you need to define WITH_LOGGING, 
+// then call Logger::log("any text"); once in your main thread 
+// before using the classes in this file. It assures 
+// Logger::instance() to run properly (static boost::mutex s_mu is created un-interruptedly).
+#ifdef WITH_LOGGING 
+#define _WITH_LOGGING
+#endif
+
+// debug classes...
+struct Logger 
+{
+#ifdef _WITH_LOGGING
+// call this once at start of application (main thread) to make sure s_mu is proper
+inline static boost::mutex & instance()
+{
+	static boost::mutex s_mu;
+	return(s_mu);
+}
+#endif
+
+inline static void log(const char * buf)
+{
+#ifdef _WITH_LOGGING
+	// can not protect if an outside thread that does not know the mutex and accesses std::cout directly
+	boost::mutex::scoped_lock lock(instance());
+	std::cout << buf << std::endl << std::flush;
+#endif
+}
+};
+
+
+typedef struct _DbnTask {
+  int operation;
+  int a_width;
+  int a_height;
+  int b_width;
+  int b_height;
+  int a_offset;
+  int b_offset;
+  int c_offset;
+} DbnTask;
+
+class DbnTaskRunner
+{
+  DbnTask task;
+  DevicePtr operand1;
+  DevicePtr operand2;
+  DevicePtr result;
+  public:
+  explicit
+  DbnTaskRunner( DbnTask& task_,
+                 DevicePtr op1_,
+                 DevicePtr op2_,
+                 DevicePtr rslt_ )
+    : task(task_),
+      operand1( op1_ + task.a_offset ),
+      operand2( op2_ + task.b_offset ),
+      result( rslt_ + task.c_offset )
+    {
+    }
+  
+  void operator()()
+  {
+  }
+};
+
+#define NUM_THREADS 16
+
+class Boss 
+{
+  unsigned int device_buffer_size_in_blocks;
+  unsigned int size_A;
+  unsigned int size_B;
+  unsigned int size_C;
+private:
+  Boss() {}
+public:
+  explicit
+  Boss(bool v)
+    : size_A( WA * HA ),
+      size_B( WB * HB ),
+      size_C( WC * HC ),
+      device_buffer_size_in_blocks( NUM_THREADS )
+    {}
+
+  void operator()()
+  {
+    cuda::Cuda cuda_context(0);
+    cuda::Module module_test_kernels("src/test_kernels.cubin");
+    cuda::Function matrixMul( module_test_kernels, "mmul" );
+    cuda::Function matrixMulTransposedB( module_test_kernels, "mmul_transpose_b" );
+    vector<cuda::Stream *> streams;
+    cuda::DeviceMemory d_A(sizeof(float) * size_A * device_buffer_size_in_blocks);
+    cuda::DeviceMemory d_B(sizeof(float) * size_B * device_buffer_size_in_blocks);
+    cuda::DeviceMemory d_C(sizeof(float) * size_C * device_buffer_size_in_blocks);
+    try {
+      Logger::log("Boss thread starting");
+      DbnTask task;
+      task.a_width = WA;
+      task.a_height = HA;
+      task.b_width = WB;
+      task.b_height = HB;
+      task.operation = 0;//normal multiply
+      for(size_t i = 0; i < NUM_THREADS; ++i)
+        {
+          task.a_offset = (sizeof(float) * WA * HA * i);
+          task.b_offset = (sizeof(float) * WB * HB * i);
+          task.c_offset = (sizeof(float) * WC * HC * i);
+
+          matrixMul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+          cuda::Stream * stream = new cuda::Stream();
+          streams.push_back(stream);
+          matrixMul.go(
+            WC / BLOCK_SIZE,
+            HC / BLOCK_SIZE,
+            *stream,//FIXME need multiple streams
+            d_C.ptr() + task.c_offset,
+            d_A.ptr() + task.a_offset,
+            d_B.ptr() + task.b_offset,
+            task.a_width,
+            task.b_width );
+          Logger::log("go has returned");
+        }
+
+      Logger::log("all kernel launches done!");
+
+    } catch (boost::lock_error& err) {
+      cerr << err.what() << endl;
+    } catch (std::exception& err) { 
+      cerr << err.what() << endl;
+    }
+  }
+
+};
 
 BOOST_AUTO_TEST_CASE( foo )
 {
-  // allocate host memory for matrices A and B
-  unsigned int size_A = WA * HA;
-  unsigned int mem_size_A = sizeof(float) * size_A;
-  float* h_A = (float*) malloc(mem_size_A);
-  float* h_A_transposed = (float*) malloc(mem_size_A);
-  unsigned int size_B = WB * HB;
-  unsigned int mem_size_B = sizeof(float) * size_B;
-  float* h_B = (float*) malloc(mem_size_B);
-  float* h_B_transposed = (float*) malloc(mem_size_B);
-  unsigned int size_C = WCtB * HCtB;
-  unsigned int mem_size_C = sizeof(float) * size_C;
-  float* h_C = (float*) malloc(mem_size_C);
-
-  // initialize host memory
-  randomInit(h_A, size_A);
-  randomInit(h_B, size_B);
-  transposeInit( h_A, h_A_transposed, WA, HA );
-  transposeInit( h_B, h_B_transposed, WB, HB );
-
-  cuda::Cuda cuda_context(0);
-  cuda::Stream stream;
-  cuda::Module module_test_kernels("src/test_kernels.cubin");
-  cuda::Function matrixMul( module_test_kernels, "mmul" );
-  cuda::Function matrixMulTransposedA( module_test_kernels, "mmul_transpose_a" );
-  cuda::Function matrixMulTransposedB( module_test_kernels, "mmul_transpose_b" );
-
-  cuda::DeviceMemory d_A( mem_size_A );
-  cuda::DeviceMemory d_B( mem_size_B );
-  cuda::DeviceMemory d_C( mem_size_C );
-
-  int wA = WA;
-  int wB = WB;
-
-  cout << "Upload...";
-  d_A.upload( (void*)h_A );
-  d_B.upload( (void*)h_B_transposed );
-  if(!stream.query()) { stream.synchronize(); }
-  cout << "done" << endl
-       << "Launch!...";
-
-  matrixMul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-  matrixMul.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
-  if(!stream.query()) { stream.synchronize(); }
-
-  cout << "done" << endl
-       << "Download...";
-
-  d_C.download( (void *)h_C );
-
-  cout << "done" << endl
-       << "Checking...";
-
-  if(!stream.query()) { stream.synchronize(); }
-
-  // check the result:
-  for( int cy = 0; cy < HCtB; ++cy )
-    for( int cx = 0; cx < WCtB; ++cx )
-      {
-        int ci = (cy * WCtB) + cx;
-        // calculate C[cx][cy]
-        float v = 0.0;
-        for( int k = 0; k < HBt; ++k)
-          {
-            int ai = (WA * cy) + k;
-            int bi = (WBt * k) + cx;
-            v += (h_A[ai] * h_B_transposed[bi]);
-          }
-        float devicev = h_C[ci];
-        float error = abs(v - devicev );
-        if( error > ACCEPTABLE_ERROR )
-          {
-            cout << "FAIL! error: " 
-                 << error
-                 << "  is greater than max error "
-                 << ACCEPTABLE_ERROR
-                 << "\t"
-                 << "  x: "
-                 << cx
-                 << "  y: "
-                 << cy
-                 << "  host v: "
-                 << v
-                 << "  device v: "
-                 << devicev
-                 << endl;
-            goto fail;
-          }
-      }
-  fail:
-  cout << "done" << endl;
-
-  //#define DEBUG_PRINT1
-  #ifdef DEBUG_PRINT1
-  cout << "A" << endl;
-  cout << endl;
-  for( int y = 0; y < HA; ++y ) {
-    for( int x = 0; x < WA; ++x )
-      if(h_A[y * WA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A[y * WA + x] << endl; }
-  }
-
-  cout << "B" << endl;
-  cout << endl;
-  for( int y = 0; y < HB; ++y ) {
-    for( int x = 0; x < WB; ++x )
-      if(h_B[y * WB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_B[y * WB + x] << endl; }
-  }
-
-  cout << "C" << endl;
-  cout << endl;
-  for( int y = 0; y < HCtB; ++y ) {
-    for( int x = 0; x < WCtB; ++x )
-      if(h_C[y * WCtB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtB + x] << endl; }
-  }
-  #endif
-
-  // do again but let cuda transpose
-
-  cout << "Upload...";
-  d_A.upload( (void*)h_A );
-  d_B.upload( (void*)h_B );
-
-  if(!stream.query()) { stream.synchronize(); }
-  cout << "done" << endl
-       << "Launch!...";
-
-  matrixMulTransposedB.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-  matrixMulTransposedB.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
-  cout << "done" << endl
-       << "Download...";
 
 
-  if(!stream.query()) { stream.synchronize(); }
-  d_C.download( (void *)h_C );
-  cout << "done" << endl
-       << "Checking...";
-  if(!stream.query()) { stream.synchronize(); }
+  Boss boss(true);
 
-  // check the result:
-  for( int cy = 0; cy < HCtB; ++cy )
-    for( int cx = 0; cx < WCtB; ++cx )
-      {
-        int ci = (cy * WCtB) + cx;
-        // calculate C[cx][cy]
-        float v = 0.0;
-        for( int k = 0; k < HBt; ++k)
-          {
-            int ai = (WA * cy) + k;
-            int bi = (WBt * k) + cx;
-            v += (h_A[ai] * h_B_transposed[bi]);
-          }
-        float devicev = h_C[ci];
-        float error = abs(v - devicev );
-        if( error > ACCEPTABLE_ERROR )
-          {
-            cout << "FAIL! error: " 
-                 << error
-                 << "  is greater than max error "
-                 << ACCEPTABLE_ERROR
-                 << "\t"
-                 << "  x: "
-                 << cx
-                 << "  y: "
-                 << cy
-                 << "  host v: "
-                 << v
-                 << "  device v: "
-                 << devicev
-                 << endl;
-            goto fail2;
-          }
-      }
-  goto skipdebug;
+  boost::thread boss_thread(boss);
+  boss_thread.join();
+  Logger::log("boss thread done");
 
-  fail2:
-  cout << "done" << endl;
+  //cuda::DeviceMemory d_C( mem_size_C );
 
+  //matrixMul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+  //matrixMul.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
+  //if(!stream.query()) { stream.synchronize(); }
 
-  #define DEBUG_PRINT2
-  #ifdef DEBUG_PRINT2
-  cout << "A" << endl;
-  cout << endl;
-  for( int y = 0; y < HA; ++y ) {
-    for( int x = 0; x < WA; ++x )
-      if(h_A[y * WA + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_A[y * WA + x] << endl; }
-  }
-
-  cout << "B" << endl;
-  cout << endl;
-  for( int y = 0; y < HB; ++y ) {
-    for( int x = 0; x < WB; ++x )
-      if(h_B[y * WB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_B[y * WB + x] << endl; }
-  }
-
-  cout << "Bt" << endl;
-  cout << endl;
-  for( int y = 0; y < HBt; ++y ) {
-    for( int x = 0; x < WBt; ++x )
-      if(h_B_transposed[y * WBt + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_B_transposed[y * WBt + x] << endl; }
-  }
-
-  cout << "C" << endl;
-  cout << endl;
-  for( int y = 0; y < HCtB; ++y ) {
-    for( int x = 0; x < WCtB; ++x )
-      if(h_C[y * WCtB + x]  >= 0.0001) { cout << x <<", " << y << ":\t\t" << h_C[y * WCtB + x] << endl; }
-  }
-  #endif
-  skipdebug:
-
-  free(h_A);
-  free(h_A_transposed);
-  free(h_B);
-  free(h_B_transposed);
-  free(h_C);
+  //matrixMulTransposedB.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+  //matrixMulTransposedB.go( WCtB / BLOCK_SIZE, HCtB / BLOCK_SIZE, stream, d_C.ptr(), d_A.ptr(), d_B.ptr(), wA, WBt );
 
 
 }
