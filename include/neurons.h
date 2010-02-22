@@ -2,8 +2,6 @@
 #define __NEURONS_H__
 
 #include "types.h"
-#include <cuda/cuda.h>
-#include <cudamm/cuda.hpp>
 #include <boost/serialization/serialization.hpp>
 
 namespace thinkerbell {
@@ -13,14 +11,8 @@ class Neurons {
     Neurons( uint n );
     ~Neurons();
     uint size() const;
-    dNeurons m_neurons;
-    void host_to_device() const;
-    void device_to_host() const;
-    activation_type * activations() const;
-    cuda::DeviceMemory m_device_memory;
   private:
     uint m_size;
-    activation_type * m_activations;
 
     friend class boost::serialization::access;
     template<class Archive>

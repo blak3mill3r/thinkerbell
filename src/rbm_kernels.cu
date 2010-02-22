@@ -1,3 +1,5 @@
+#ifdef _IGNORETHISBSFORNOW_
+
 extern "C" {
 #include "types.h"
 
@@ -111,3 +113,4 @@ weight_decay( dNeurons A, dNeurons B, weight_type * W, float decay )
 }
 
 }
+#endif

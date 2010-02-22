@@ -21,8 +21,6 @@
 #include "types.h"
 #include "neurons.h"
 #include "rbm.h"
-#include "trainers/base.h"
-#include "training_example.h"
 
 namespace thinkerbell {
 using namespace std;
@@ -88,25 +86,12 @@ class DeepBeliefNetwork
     ~DeepBeliefNetwork();
     Vertex add_neurons( uint num_neurons, const std::string name = "anonymous neurons" );
     Edge connect( const Vertex &va, const Vertex &vb );
-    void training_step();
-    void set_example_trainer( const AbstractTrainer *trainer );
-    float average_weight_adjustment( const Vertex &v );
-    void perceive();
-    void fantasize();
-    void set_stream( const cuda::Stream &stream );
-    activation_type * get_training_example();
+    list<Vertex> topological_order() const { return m_topological_order; }
+    Graph m_graph; // FIXME this should be protected, maybe make DeepBeliefNetworkScheduler a friend class
 
   protected:
-    void activate_vertex( const Vertex &v );
-    void inverted_activate_vertex( const Vertex &v );
-    void training_step_vertex( const Vertex &v );
-    // FIXME think of a better name for set_neurons_from_example
-    void set_neurons_from_example( const Vertex &v, const TrainingExample &example );
     void update_topological_order();
-    Graph m_graph;
-    const AbstractTrainer * m_example_trainer;
-    const cuda::Stream * m_stream;
-    list<Vertex> topological_order;
+    list<Vertex> m_topological_order;
 
   private:
     friend class boost::serialization::access;

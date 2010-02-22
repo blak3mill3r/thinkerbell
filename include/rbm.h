@@ -12,34 +12,11 @@ class Rbm {
     Rbm(Neurons *a, Neurons *b);
     ~Rbm();
 
-    // member functions which invoke CUDA kernels:
-    void activate_a(const cuda::Stream &stream);
-    void activate_b(const cuda::Stream &stream);
-    void positive_weight_sample(const cuda::Stream &stream);
-    void negative_weight_sample(const cuda::Stream &stream);
-    void weight_update( const cuda::Stream &stream );
-    void weight_decay( float decay, const cuda::Stream &stream );
-    void training_step(const cuda::Stream &stream );
-    
     void randomize_weights();
-    void host_to_device();
-    void device_to_host();
     Weights m_W;
-    Weights m_W_scratch;
-    Weights m_W_statistics;
-    float learning_rate;
-    float sigmoid_steepness;
     Neurons *m_A;
     Neurons *m_B;
   private:
-    void weight_sample(const cuda::Stream &stream, Weights &W_temp, float learning_rate_multiplier);
-    inline int calculate_blocks();
-    cuda::Module module_rbm_kernels;
-    cuda::Function kernel_activation_update_amajor;
-    cuda::Function kernel_activation_update_bmajor;
-    cuda::Function kernel_weight_sample;
-    cuda::Function kernel_weight_update;
-    cuda::Function kernel_weight_decay;
 
     friend class boost::serialization::access;
     template<class Archive>
@@ -50,6 +27,7 @@ class Rbm {
 };
 
 } // namespace thinkerbell
+//FIXME why aren't m_A and m_B serialized? as below...
 
 /*
 namespace boost { namespace serialization {

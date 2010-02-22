@@ -13,38 +13,14 @@ DeepBeliefNetwork::~DeepBeliefNetwork()
 {
 }
 
-void DeepBeliefNetwork::set_stream( const cuda::Stream &stream )
-{ m_stream = &stream; }
-
-// call this after training step
-// it returns the average absolute weight adjustment per connection
-float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v ) 
-{
-  graph_traits< Graph >::in_edge_iterator in_i, in_end;
-  tie( in_i, in_end ) = in_edges( v, m_graph );
-  m_graph[*in_i].rbm->m_W_statistics.device_to_host();
-  weight_type * f = m_graph[*in_i].rbm->m_W_statistics.weights();
-  int size = m_graph[v].neurons->size();
-  float sum = 0.0;
-  for(int i =0; i< size; ++i) sum += f[i];
-
-  int numweights = m_graph[*in_i].rbm->m_W.size();
-  return (sum/numweights); 
-}
-
 // create a connection from A to B
 Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
 {
   Edge e = add_edge(va, vb, m_graph).first;
-  m_graph[e].rbm = new Rbm( //FIXME
+  m_graph[e].rbm = new Rbm( //FIXME problems serializing auto pointers
     m_graph[va].neurons,
     m_graph[vb].neurons
   );
-
-  // FIXME these next two lines are temporary
-  // they belong somewhere else
-  m_graph[e].rbm->randomize_weights();
-  m_graph[e].rbm->m_W.host_to_device();
 
   // the graph has changed
   update_topological_order();
@@ -59,12 +35,38 @@ Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name 
   Vertex v = add_vertex(m_graph);
   // create a new Neurons and assign it to the new vertex
   m_graph[v].name = name;
-  m_graph[v].neurons = new Neurons(num_neurons);  //FIXME
+  m_graph[v].neurons = new Neurons(num_neurons);  //FIXME problems serializing auto pointers
 
   // the graph has changed
   update_topological_order();
 
   return v;
+}
+
+void DeepBeliefNetwork::update_topological_order()
+{
+  m_topological_order.clear();
+  topological_sort(m_graph, std::front_inserter(m_topological_order));
+}
+
+} // namespace thinkerbell
+
+
+/*
+// call this after training step
+// it returns the average absolute weight adjustment per connection
+float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v ) 
+{
+  graph_traits< Graph >::in_edge_iterator in_i, in_end;
+  tie( in_i, in_end ) = in_edges( v, m_graph );
+  m_graph[*in_i].rbm->m_W_statistics.device_to_host();
+  weight_type * f = m_graph[*in_i].rbm->m_W_statistics.weights();
+  int size = m_graph[v].neurons->size();
+  float sum = 0.0;
+  for(int i =0; i< size; ++i) sum += f[i];
+
+  int numweights = m_graph[*in_i].rbm->m_W.size();
+  return (sum/numweights); 
 }
 
 // sets activation of a Vertex based on all of its inputs
@@ -141,12 +143,6 @@ void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const Trainin
                 m_graph[v].neurons->m_device_memory.size() );
 }
 
-void DeepBeliefNetwork::update_topological_order()
-{
-  topological_order.clear();
-  topological_sort(m_graph, std::front_inserter(topological_order));
-}
-
 // perception through the whole graph
 // then performs one training step on the highest-level-Vertex
 void DeepBeliefNetwork::training_step( )
@@ -189,5 +185,6 @@ activation_type * DeepBeliefNetwork::get_training_example()
   return n->activations();
 }
 
-}
+*/
+
 
