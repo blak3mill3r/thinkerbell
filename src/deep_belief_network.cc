@@ -23,7 +23,7 @@ Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
   );
 
   // the graph has changed
-  update_topological_order();
+  update_graph_metadata();
 
   return e;
 }
@@ -38,15 +38,39 @@ Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name 
   m_graph[v].neurons = new Neurons(num_neurons);  //FIXME problems serializing auto pointers
 
   // the graph has changed
-  update_topological_order();
+  update_graph_metadata();
 
   return v;
 }
 
-void DeepBeliefNetwork::update_topological_order()
+void DeepBeliefNetwork::update_graph_metadata()
 {
+  // sort topologically:
   m_topological_order.clear();
+  m_training_edges.clear();
+  m_non_training_edges.clear();
+  m_all_edges.clear();
   topological_sort(m_graph, std::front_inserter(m_topological_order));
+
+  graph_traits< DeepBeliefNetworkGraph >::edge_iterator ei, eend;
+  // build lists of training edges and non-training edges
+  for(tie(ei, eend) = edges(m_graph); ei != eend; ei++)
+  {
+    // is this a training edge or not?
+    Edge e = *ei;
+    Vertex tv = target( e, m_graph );
+    graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
+    tie(out_i, out_end) = out_edges( tv, m_graph );
+    bool no_out_edges = ( (out_end - out_i) == 0 );
+    //( no_out_edges ? m_training_edges : m_non_training_edges ).push_back(e);
+    if( no_out_edges )
+      m_training_edges.push_back(e);
+    else
+      m_non_training_edges.push_back(e);
+    m_all_edges.push_back(e);
+  }
+
+
 }
 
 } // namespace thinkerbell

@@ -86,12 +86,28 @@ class DeepBeliefNetwork
     ~DeepBeliefNetwork();
     Vertex add_neurons( uint num_neurons, const std::string name = "anonymous neurons" );
     Edge connect( const Vertex &va, const Vertex &vb );
-    list<Vertex> topological_order() const { return m_topological_order; }
+    list<Vertex>::const_iterator topological_order_begin() const { return m_topological_order.begin(); }
+    list<Vertex>::const_iterator topological_order_end() const { return m_topological_order.end(); }
+    list<Edge>::const_iterator training_edges_begin() const { return m_training_edges.begin(); }
+    list<Edge>::const_iterator training_edges_end() const { return m_training_edges.end(); }
+    list<Edge>::const_iterator non_training_edges_begin() const { return m_non_training_edges.begin(); }
+    list<Edge>::const_iterator non_training_edges_end() const { return m_non_training_edges.end(); }
+    list<Edge>::const_iterator all_edges_begin() const { return m_all_edges.begin(); }
+    list<Edge>::const_iterator all_edges_end() const { return m_all_edges.end(); }
     DeepBeliefNetworkGraph m_graph; // FIXME this should be protected, maybe make DeepBeliefNetworkScheduler a friend class
 
+    int neurons_size( Vertex v )
+      { return (m_graph)[v].neurons->size(); }
+
+    int weights_size( Edge e )
+      { return (m_graph)[e].rbm->m_W.size(); }
+
   protected:
-    void update_topological_order();
+    void update_graph_metadata();
     list<Vertex> m_topological_order;
+    list<Edge> m_training_edges;
+    list<Edge> m_non_training_edges;
+    list<Edge> m_all_edges;
 
   private:
     friend class boost::serialization::access;
@@ -104,7 +120,7 @@ class DeepBeliefNetwork
     void load( Archive & ar, const unsigned int version )
     {
       ar >> m_graph;
-      update_topological_order();
+      update_graph_metadata();
     }
     BOOST_SERIALIZATION_SPLIT_MEMBER()
 };

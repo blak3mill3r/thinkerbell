@@ -17,8 +17,8 @@
 #define B_SIZE 256
 #define C_SIZE 256
 #define D_SIZE 256
-#define NUM_STREAMS 16
-#define BATCH_SIZE 256
+#define BATCH_SIZE 64
+#define NUM_EXAMPLES_PER_BUFFER 64
 
 #define BOOST_TEST_MODULE thinkerbell_test_suite
 
@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE( foo )
   dbn.connect( vB, vC );
   dbn.connect( vC, vD );
  
-  DeepBeliefNetworkScheduler scheduler( &dbn, NUM_STREAMS, BATCH_SIZE );
+  DeepBeliefNetworkScheduler scheduler( &dbn, BATCH_SIZE, NUM_EXAMPLES_PER_BUFFER );
 
   Logger::log("starting dbn scheduler");
   boost::thread scheduler_thread(scheduler);
