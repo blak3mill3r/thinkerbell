@@ -67,10 +67,10 @@ typedef adjacency_list<
   bidirectionalS,     // bidirectional
   VertexProperties,   // vertex properties
   EdgeProperties      // edge properties
-  > Graph;
+  > DeepBeliefNetworkGraph;
 
-typedef graph_traits<Graph>::vertex_descriptor Vertex;
-typedef graph_traits<Graph>::edge_descriptor Edge;
+typedef graph_traits<DeepBeliefNetworkGraph>::vertex_descriptor Vertex;
+typedef graph_traits<DeepBeliefNetworkGraph>::edge_descriptor Edge;
 
 // a DeepBeliefNetwork is a graph with a Neurons instance at each vertex and an Rbm instance at each edge
 // Edges represent connected Neurons pairs
@@ -87,7 +87,7 @@ class DeepBeliefNetwork
     Vertex add_neurons( uint num_neurons, const std::string name = "anonymous neurons" );
     Edge connect( const Vertex &va, const Vertex &vb );
     list<Vertex> topological_order() const { return m_topological_order; }
-    Graph m_graph; // FIXME this should be protected, maybe make DeepBeliefNetworkScheduler a friend class
+    DeepBeliefNetworkGraph m_graph; // FIXME this should be protected, maybe make DeepBeliefNetworkScheduler a friend class
 
   protected:
     void update_topological_order();

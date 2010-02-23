@@ -57,7 +57,7 @@ void DeepBeliefNetwork::update_topological_order()
 // it returns the average absolute weight adjustment per connection
 float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v ) 
 {
-  graph_traits< Graph >::in_edge_iterator in_i, in_end;
+  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   m_graph[*in_i].rbm->m_W_statistics.device_to_host();
   weight_type * f = m_graph[*in_i].rbm->m_W_statistics.weights();
@@ -73,7 +73,7 @@ float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v )
 void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 {
   // get a list of in-edges
-  graph_traits< Graph >::in_edge_iterator in_i, in_end;
+  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   uint num_inputs = (in_end - in_i);
   switch( num_inputs )
@@ -94,7 +94,7 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
 {
   // get a list of out-edges
-  graph_traits< Graph >::out_edge_iterator out_i, out_end;
+  graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
   tie( out_i, out_end ) = out_edges( v, m_graph );
   uint num_inputs = (out_end - out_i);
   switch( num_inputs )
@@ -114,7 +114,7 @@ void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
 void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
 {
   // get a list of in-edges
-  graph_traits< Graph >::in_edge_iterator in_i, in_end;
+  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   uint num_inputs = (in_end - in_i);
   switch( num_inputs )

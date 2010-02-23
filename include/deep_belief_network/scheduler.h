@@ -76,7 +76,7 @@ public:
     for(Viterator vi = vertices.begin(); vi != vertices.end(); vi++ )
     {
       // find the out edge for this vertex:
-      graph_traits< Graph >::out_edge_iterator out_i, out_end;
+      graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
       tie( out_i, out_end ) = out_edges( *vi, dbn->m_graph );
       if((out_end - out_i) == 1) // if there's one out edge
       {
@@ -94,7 +94,7 @@ public:
     for(Viterator vi = vertices.begin(); vi != vertices.end(); vi++ )
     {
       // find the out edge for this vertex:
-      graph_traits< Graph >::out_edge_iterator out_i, out_end;
+      graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
       tie( out_i, out_end ) = out_edges( *vi, dbn->m_graph );
       if((out_end - out_i) == 1) // if there's one out edge
       {
@@ -136,7 +136,7 @@ public:
       for(Viterator vi = vertices.begin(); vi != vertices.end(); vi++ )
       {
         // find the out edge for this vertex:
-        graph_traits< Graph >::out_edge_iterator out_i, out_end;
+        graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
         tie( out_i, out_end ) = out_edges( *vi, dbn->m_graph );
         if((out_end - out_i) == 1) // if there's one out edge
         {
