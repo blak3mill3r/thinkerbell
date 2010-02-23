@@ -101,116 +101,11 @@ private:
   DeepBeliefNetworkScheduler() {}
 public:
   explicit
-  DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
-    : batch_size( batch_size_ ),
-      dbn( dbn_ ),
-      num_examples( num_examples_ ),
-      time_to_stop( false )
-  {}
+  DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
 
-  void stop()
-  { time_to_stop = true; }
+  void stop() { time_to_stop = true; }
 
-  void operator()()
-  {
-    cout << "here we go" << endl;
-    Cuda context(0);
-    Module module_test_kernels("src/test_kernels.cubin");
-    Function mmul( module_test_kernels, "mmul" );
-    Function mmultb( module_test_kernels, "mmul_transpose_b" );
-    //Function madd( module_test_kernels, "madd" );
-    vector<Stream *> streams;
-
-    // allocate device memory for the dbn:
-    cout << "init dmemory" << endl;
-    DeepBeliefNetworkMemoryMapper dmemory( dbn, batch_size, num_examples );
-    cout << "temp size = " << dmemory.temporary_memory_size() << endl;
-
-    return;
-
-    //////////////////////////////////////
-    // get the triple buffering rolling...
-    //////////////////////////////////////
-
-    // 2 streams:
-    streams.push_back(new Stream());
-    streams.push_back(new Stream());
-
-    // begin/end events for each buffer
-    Event exec_begin[3];
-    Event exec_end[3];
-
-    // first 2 steps are different:
-    // there is no batch finishing with the current buffer
-    exec_end[3].record( *streams[0] );
-    exec_end[0].record( *streams[1] );
-    // FIXME xfer examples into buffers B and C
-
-    while(true)
-    for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
-    {
-      int bufa = ((i+0)%3); // this gives us three phases
-      int bufb = ((i+1)%3); // weights will be copied from bufb (because bufb was bufc last iteration)
-      int bufc = ((i+2)%3); // buffer C will be written to
-      int streami = i%2;
-
-      // transfer examples into A buffer
-      // FIXME
-
-      // synch with the end of the execution of the last one using C buffers
-      // FIXME add timing
-      exec_end[bufc].synchronize();
-
-      // up activation through the whole graph using C buffers
-      // for each vertex
-      /*for( list<Vertex>::iterator vi = activation_order.begin(); vi != activation_order.end(); vi++ )
-      {
-        // find the out edge
-        graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
-        tie(out_i, out_end) = out_edges( *vi, dbn->m_graph );
-        // if there's one out edge
-        if( (out_end - out_i) == 1 )
-        {
-          Edge e = *out_i;
-          list<Vertex>::iterator nvi = vi; nvi++;  // next vertex iterator and (current) vertex iterator
-          mmul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-          mmul.go(
-            dmemory.neurons_size( *nvi ) / BLOCK_SIZE,
-            batch_size / BLOCK_SIZE,
-            *streams[streami],
-            dmemory.neurons_ptr( *nvi, bufc ),
-            dmemory.neurons_ptr( *vi, bufc ),
-            dmemory.weights_ptr( e, bufc ),
-            dmemory.neurons_size( *vi ),
-            dmemory.neurons_size( *nvi )
-          );
-        }
-      }
-
-      // FIXME AGS steps
-
-      // synch with B-execution done and time it (it should be 0)
-      // FIXME add the timing
-      exec_end[bufb].synchronize();
-
-      // start weight adjustment kernel on results in C buffer
-      // adding the results to the weights in A buffer
-      // writing to B buffer
-      // FIXME
-          */
-
-      if( time_to_stop )
-        goto alldone;
-
-    }
-
-    alldone:
-    streams[0]->synchronize();
-    streams[1]->synchronize();
-    delete streams[1];
-    delete streams[0];
-    
-  }
+  void operator()();
 
 };
 
