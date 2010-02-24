@@ -24,6 +24,38 @@ todo
     * else the memory space is all ours at this point
 
 
+maybe more better than that, along the lines of
+step through the training process in a prep phase first
+and "dynamically" allocating temp memory for whatever is needed
+therefore discarding the idea of 2 buffers for each of 3 phases
+there's just a single space * 3 phases
+just big enough for whatever needs to fit in at the same time
+
+this actually seems to simplify it
+
+step through the edges in topo order of their targets
+  if I'm the only edge activating my target
+    use the kernel that reads and adds to result's values rather than overwriting
+  activate the target...
+
+dynamic mem allocator
+  pseudo-dynamic, it is merely prepping pointers into temp memory and ensuring space requirements
+  so you can allocate an operand with it
+  which is attached to a Vertex and is a batch of neuron activations/energies
+
+DeepBeliefNetworkScheduler could be templatized on a class which does the algorithm steps
+one actually runs the algorithm, launching kernels etc
+one allocates temporary memory
+
+that class has to have inline functions for allocating/freeing memory
+which are stubs in the kernel launching impl
+and call the memory allocator in the other one
+
+so the memory allocator DbnDynamicMemoryAllocator
+malloc( Edge e, int bufferi )
+mfree( Edge e, int bufferi )
+
+
 // abstract step class
 class DbnStep
 {
@@ -44,3 +76,5 @@ class DbnStep
   * enough temporary space to accomodate the maximum of this for each vertex being activated:
     * sum of this for each in-edge:
       * 
+
+

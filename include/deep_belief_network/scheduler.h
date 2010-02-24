@@ -56,7 +56,7 @@ class DeepBeliefNetworkScheduler;
 class DeepBeliefNetworkMemoryMapper
 {
 public:
-  DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int example_buffer_size_ );
+  DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
 
   DevicePtr temporaries_ptr( int buffer_index, int temporary_space_index )
     { return temp_ptr[buffer_index][temporary_space_index]; }

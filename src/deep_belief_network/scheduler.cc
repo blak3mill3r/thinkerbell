@@ -15,6 +15,7 @@ DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_
 
 void DeepBeliefNetworkScheduler::operator()()
 {
+      Logger::log("seemstowork");
   Cuda context(0);
   Module module_test_kernels("src/test_kernels.cubin");
   Function mmul( module_test_kernels, "mmul" );
@@ -77,19 +78,22 @@ void DeepBeliefNetworkScheduler::operator()()
   }
 
   alldone:
+  Logger::log("wait for streams to finish");
   streams[0]->synchronize();
   streams[1]->synchronize();
+  Logger::log("cleanup");
   delete streams[1];
   delete streams[0];
+  Logger::log("done!");
   
 }
 
 
 // FIXME todo for the mapper: weight_delta_memory should be zeroed before starting
-DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int example_buffer_size_ )
+DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
   : dbn( dbn_ )
   , batch_size( batch_size_ )
-  , example_buffer_size( example_buffer_size_ )
+  , num_examples( num_examples_ )
   , weights_memory_layout_map()
   , weights_ptr_map()
   , weights_memory( weights_memory_size() )
@@ -162,9 +166,12 @@ int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 // FIXME only accomodates one input vertex
 int DeepBeliefNetworkMemoryMapper::example_memory_size()
 {
+  cout << "Calculating example memory size...";
   Vertex inputv = *dbn->topological_order_begin();
   int example_size = dbn->neurons_size(inputv);
   example_buffer_size = num_examples * example_size;
+  cout << " = " << example_buffer_size * 3 << " bytes" << endl;
+  cout << "because num_examples = " << num_examples << " and example_size = " << example_size << endl;
   return (example_buffer_size * 3);
 }
 
@@ -214,6 +221,7 @@ void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool tr
 
 int DeepBeliefNetworkMemoryMapper::weights_memory_size()
 {
+  cout << "Calculating weights memory size";
   for_each( dbn->non_training_edges_begin()
           , dbn->non_training_edges_end()
           , boost::lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
@@ -246,6 +254,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
                          )
             )
           );
+  cout << " = " << sizeof(float) * total_size << "bytes" << endl;
 
   return (sizeof(float) * total_size);
 }
