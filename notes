@@ -1,43 +1,46 @@
 todo
-  singleton cubin loader with a map<std::string, cuda::Program>? mt probs
-  multithreaded host code with boost::thread? or OpenMP?
-
-
-move all the cuda::DeviceMemory objects into DeepBeliefNetwork
   * activation buffer for each vertex in current training phase (one is the original examples)
   * weight buffer for each edge in current training phase
   * weight scratch buffer for the last edge in current training phase
+  trickiness: need separate temp memory space for each branch of tree
 
-DeepBeliefNetwork should have a thread-safe member function "activation worker"
-  * waits on a condition (block-of-inputs-ready)
-  * processes the block
-  * notifies on condition to next level
+  create a map while doing this map<Vertex,int> vertex one down from a fork
+  * starting from the one and only vertex with 0 out edges as required by the training algorithm
+    * z=max(z, space required for neuron temporary values for this vertex
+    * if forkinttheroad
+      * z=max(z, sum of the size requirements of the n downstream paths
+    * else
+      * go down one
+      * if nowhere to go, store size req in map at the vertex directly under the last fork or the top
 
-DeepBeliefNetwork should have a thread-safe member function "weight sample worker"
-  * waits on condition (two-blocks-of-top-level-neurons-ready)
-  * processes the block
-  if enough stuff has piled up
-    * notifies on condition (weight-updates-ready)
-    * waits on condition (full-buffer)
+  now the map contains sizes for the things which will have to coexist in temporary memory
 
-DeepBeliefNetwork should have a thread-safe member function "weight sample collection worker"
-  * waits on conditions (weight-updates-ready)
-  * sums the pending weight update blocks, writes to weight buffer for current edge
-  ** this one needs top-level activation workers to wait on it since it's modifying a weight buffer
+  need an abstraction of "step" so device pointers into temp memory can be assigned to them
 
-  
-
-Producer/Consumer
-
-a monitor class for each edge in the training process, synchronizing production/consumption of activations (both ways, up & down)
-that class should have four condition vars and 2 mutexen
+  create a map that contains ptrs into temporary memory for each step
+  * starting from the only vertex with 0 out edges
+    * if forkintheroad
+      * make pointers to separate space for each vertex with sizes from the map above^ 
+    * else the memory space is all ours at this point
 
 
-ACTIVATE worker
-------------------
-consumer of A-activations
-producer of B-activations
+// abstract step class
+class DbnStep
+{
+  public:
+  void set_operand_temp_ptr( Deviceptr p );
+  void set_result_temp_ptr( Deviceptr p );
+};
+
+// descend from that class for the different steps
+// mmul_add, mmul_overwrite, mmultb_add, mmultb_overwrite
 
 
-condition full, empty
 
+
+    
+    
+
+  * enough temporary space to accomodate the maximum of this for each vertex being activated:
+    * sum of this for each in-edge:
+      * 

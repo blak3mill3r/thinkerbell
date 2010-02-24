@@ -64,31 +64,51 @@ public:
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
 
+  DevicePtr weights_delta_ptr( Edge e, int buffer_index )
+    { return weights_delta_ptr_map[e][buffer_index]; }
+
   DevicePtr examples_ptr( int buffer_index )
     { return (example_memory.ptr() + (sizeof(float) * buffer_index * example_buffer_size)); }
 
 public: // FIXME private
 
   int temporary_memory_size();
-
   int example_memory_size();
-
+  int weights_memory_size();
+  int weights_delta_memory_size();
   void weights_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
-
-  int weights_memory_size();
+  DevicePtr map_weights_delta_ptrs( const pair<Edge,int> &edge_and_size, DevicePtr p );
+  int weight_matrix_size( Edge e );
 
 protected:
   DeepBeliefNetwork * dbn;
-  int batch_size;
-  int num_examples;
-  int example_buffer_size;
-  map<Edge, pair< int, bool > > weights_memory_layout_map; // the int is the size, the bool is triple-buffering
-  map<Edge, vector< DevicePtr > > weights_ptr_map;
-  DevicePtr temp_ptr[3][2]; // 3 x 2, 2 memory spaces in each of 3 phases of triple-buffering
-  DeviceMemory weights_memory;
-  DeviceMemory example_memory;
-  DeviceMemory temporary_memory;
+  int batch_size
+    , num_examples
+    , example_buffer_size
+    , temporary_buffer_size
+    ;
+ 
+   // the int is the size, the bool is triple-buffering
+   map<Edge, pair< int, bool > > weights_memory_layout_map;
+   // all weight delta buffers will be triple-buffered
+   map<Edge, int > weights_delta_memory_layout_map;
+ 
+   // for each Edge, a pointer for each of 3 phases
+   // (they will all point to the same buffer iff the weights will not be written to)
+   map<Edge, vector< DevicePtr > > weights_ptr_map
+                                 , weights_delta_ptr_map;
+ 
+   // (2 operand temporaries) in each of 3 phases
+   // FIXME this is wrong
+   DevicePtr temp_ptr[3][2];
+ 
+   DeviceMemory weights_memory
+              , weights_delta_memory
+              , example_memory
+              , temporary_memory
+              ;
+
 };
 
 class DeepBeliefNetworkScheduler

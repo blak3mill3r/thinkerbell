@@ -41,60 +41,35 @@ void DeepBeliefNetworkScheduler::operator()()
   // there is no batch finishing with the current buffer
   exec_end[3].record( *streams[0] );
   exec_end[0].record( *streams[1] );
+  // FIXME foreachinputvertex alloc space in A B C
   // FIXME xfer examples into buffers B and C
 
   while(true)
   for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
   {
-    int bufa = ((i+0)%3); // this gives us three phases
-    int bufb = ((i+1)%3); // weights will be copied from bufb (because bufb was bufc last iteration)
-    int bufc = ((i+2)%3); // buffer C will be written to
+    // this gives us three phases
+    int bufa = ((i+0)%3); // bufa weights will be written to because it will be bufc next iteration and will be used for activation steps
+    int bufb = ((i+1)%3); // 
+    int bufc = ((i+2)%3); // bufc weight buffers will be used for activation steps
     int streami = i%2;
 
-    // transfer examples into A buffer
-    // FIXME
+    // FIXME foreachinputvertex transfer examples into A buffer
 
     // synch with the end of the execution of the last one using C buffers
     // FIXME add timing
     exec_end[bufc].synchronize();
 
-    // up activation through the whole graph using C buffers
-    // for each vertex
-    /*for( list<Vertex>::iterator vi = activation_order.begin(); vi != activation_order.end(); vi++ )
-    {
-      // find the out edge
-      graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
-      tie(out_i, out_end) = out_edges( *vi, dbn->m_graph );
-      // if there's one out edge
-      if( (out_end - out_i) == 1 )
-      {
-        Edge e = *out_i;
-        list<Vertex>::iterator nvi = vi; nvi++;  // next vertex iterator and (current) vertex iterator
-        mmul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-        mmul.go(
-          dmemory.neurons_size( *nvi ) / BLOCK_SIZE,
-          batch_size / BLOCK_SIZE,
-          *streams[streami],
-          dmemory.neurons_ptr( *nvi, bufc ),
-          dmemory.neurons_ptr( *vi, bufc ),
-          dmemory.weights_ptr( e, bufc ),
-          dmemory.neurons_size( *vi ),
-          dmemory.neurons_size( *nvi )
-        );
-      }
-    }
-
-    // FIXME AGS steps
+    // FIXME up activation through the whole graph using C buffers
 
     // synch with B-execution done and time it (it should be 0)
     // FIXME add the timing
     exec_end[bufb].synchronize();
 
-    // start weight adjustment kernel on results in C buffer
-    // adding the results to the weights in A buffer
-    // writing to B buffer
-    // FIXME
-        */
+    // FIXME foreachtrainingedge: weight sample 1, sum with values in weights-B overwriting values in the weight-delta-C
+    // FIXME foreachtrainingedge: AGS steps down&up
+    // FIXME foreachtrainingedge: weight sample 2, subtracting from values in weight-delta-C writing to weight-B
+
+    // we're done with a training step on a vertex
 
     if( time_to_stop )
       goto alldone;
@@ -110,24 +85,33 @@ void DeepBeliefNetworkScheduler::operator()()
 }
 
 
+// FIXME todo for the mapper: weight_delta_memory should be zeroed before starting
 DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int example_buffer_size_ )
-  : dbn( dbn_ ),
-    batch_size( batch_size_ ),
-    example_buffer_size( example_buffer_size_ ),
-    weights_memory_layout_map(),
-    weights_ptr_map(),
-    weights_memory( 0x10 ),
-    example_memory( 0x10 ),
-    temporary_memory( 0x10 )
-    //weights_memory( weights_memory_size() ),
-    //example_memory( example_memory_size() ),
-    //temporary_memory( temporary_memory_size() )
+  : dbn( dbn_ )
+  , batch_size( batch_size_ )
+  , example_buffer_size( example_buffer_size_ )
+  , weights_memory_layout_map()
+  , weights_ptr_map()
+  , weights_memory( weights_memory_size() )
+  , weights_delta_memory( weights_delta_memory_size() )
+  , example_memory( example_memory_size() )
+  , temporary_memory( temporary_memory_size() )
 {
   cout << "constructing memory mapper..." << endl;
   cout << "weights size: " << weights_memory_size() << endl;
   cout << "example size: " << example_memory_size() << endl;
   cout << "temporary size: " << temporary_memory_size() << endl;
+  cout << "weights delta size: " << weights_delta_memory_size() << endl;
+
+  // FIXME wrong
+  // assign temp_ptr :
+  for(int f=0; f<3; ++f)
+  for(int u=0; u<2; ++u)
+    temp_ptr[f][u] = temporary_memory.ptr()
+                   + (sizeof(float) * temporary_buffer_size * (u * 3 + f));
+
   DevicePtr currentp = weights_memory.ptr();
+
   // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
   for_each( weights_memory_layout_map.begin()
           , weights_memory_layout_map.end()
@@ -203,6 +187,16 @@ DevicePtr DeepBeliefNetworkMemoryMapper::map_weights_ptrs( const pair<Edge,pair<
   return( p + (sizeof(float) * memory_requirement) );
 }
 
+int DeepBeliefNetworkMemoryMapper::weight_matrix_size( Edge e )
+{
+  Vertex sourcev = source( e, dbn->m_graph );
+  Vertex targetv = target( e, dbn->m_graph );
+  int sourcevsize = dbn->neurons_size(sourcev) 
+    , targetvsize = dbn->neurons_size(targetv)
+    ;
+  return (sourcevsize * targetvsize);
+}
+
 void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool triple_buffered )
 {
   Vertex sourcev = source( e, dbn->m_graph );
@@ -250,6 +244,31 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
                                                            )
                                     ))
                          )
+            )
+          );
+
+  return (sizeof(float) * total_size);
+}
+
+int DeepBeliefNetworkMemoryMapper::weights_delta_memory_size()
+{
+  int total_size = 0;
+  for_each( dbn->training_edges_begin()
+          , dbn->training_edges_end()
+          , var(total_size) = var(total_size)
+          + lambda::bind( &DeepBeliefNetworkMemoryMapper::weight_matrix_size
+                        , this
+                        , _1
+                        )
+          );
+
+  for_each( weights_delta_memory_layout_map.begin()
+          , weights_delta_memory_layout_map.end()
+          , (var(total_size) = var(total_size) + 
+                ret<int>( lambda::bind( &pair<Edge,int>::second
+                                      , _1
+                                      )
+                        )
             )
           );
 
