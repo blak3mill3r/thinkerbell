@@ -119,7 +119,7 @@ DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork 
   // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
   for_each( weights_memory_layout_map.begin()
           , weights_memory_layout_map.end()
-          , var(currentp) = ret< DevicePtr >(boost::lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
+          , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
           );
 }
 
@@ -149,10 +149,10 @@ int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
   // set max_size to the size of the biggest weight matrix operand iff its bigger than max_size
   for_each( dbn->all_edges_begin()
           , dbn->all_edges_end()
-          , var(max_size) = ret<int>(boost::lambda::bind(
+          , var(max_size) = ret<int>(lambda::bind(
                               &std::max<int>,
                               var(max_size),
-                              boost::lambda::bind(
+                              lambda::bind(
                                 &DeepBeliefNetwork::weights_size,
                                 dbn,
                                 _1)
@@ -224,7 +224,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
   cout << "Calculating weights memory size";
   for_each( dbn->non_training_edges_begin()
           , dbn->non_training_edges_end()
-          , boost::lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
+          , lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
                                , this
                                , _1
                                , constant(false) // not a training edge
@@ -232,7 +232,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
           );
   for_each( dbn->training_edges_begin()
           , dbn->training_edges_end()
-          , boost::lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
+          , lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
                                , this
                                , _1
                                , constant(true) // a training edge
@@ -245,10 +245,10 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
           , weights_memory_layout_map.end()
           , (var(total_size) =
                ret< int >(
-                 boost::lambda::bind( &pair< int, bool >::first
+                 lambda::bind( &pair< int, bool >::first
                                     , ret< pair< int,bool > >(
-                                        boost::lambda::bind( &pair< Edge, pair< int, bool > >::second
-                                                           , boost::lambda::_1
+                                        lambda::bind( &pair< Edge, pair< int, bool > >::second
+                                                           , lambda::_1
                                                            )
                                     ))
                          )
