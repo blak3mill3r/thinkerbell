@@ -55,26 +55,14 @@ so the memory allocator DbnDynamicMemoryAllocator
 malloc( Edge e, int bufferi )
 mfree( Edge e, int bufferi )
 
+even better than that would be automatically allocating and freeing
+need to know when is the last time a Vertex's neuron values are used
+after that they can be freed
 
-// abstract step class
-class DbnStep
-{
-  public:
-  void set_operand_temp_ptr( Deviceptr p );
-  void set_result_temp_ptr( Deviceptr p );
-};
 
-// descend from that class for the different steps
-// mmul_add, mmul_overwrite, mmultb_add, mmultb_overwrite
+step through training process
 
 
 
-
-    
-    
-
-  * enough temporary space to accomodate the maximum of this for each vertex being activated:
-    * sum of this for each in-edge:
-      * 
-
-
+little things
+move all the DeepBeliefNetwork* classes into a namespace deep_belief_network

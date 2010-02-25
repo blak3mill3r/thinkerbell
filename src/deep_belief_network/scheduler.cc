@@ -7,22 +7,75 @@ using boost::lambda::bind;
 using boost::lambda::_1;
 
 DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
-  : batch_size( batch_size_ ),
-    dbn( dbn_ ),
-    num_examples( num_examples_ ),
-    time_to_stop( false )
-{}
+  : context(0)
+  , module_test_kernels("src/test_kernels.cubin")
+  , mmul( module_test_kernels, "mmul" )
+  , mmultb( module_test_kernels, "mmul_transpose_b" )
+//, madd( module_test_kernels, "madd" )
+  , batch_size( batch_size_ )
+  , dbn( dbn_ )
+  , num_examples( num_examples_ )
+  , time_to_stop( false )
+  , dmemory( dbn_, batch_size_, num_examples_ )
+    
+{
+  training_process<DeepBeliefNetworkMemoryMapper>( &dmemory );
+}
+
+template< class T >
+void DeepBeliefNetworkScheduler::training_process( T *impl
+                                                 , int read_weights_buffer_index
+                                                 , int write_buffer_index
+                                                 )
+{
+  // FIXME foreachinputvertex transfer examples into A buffer
+
+  // synch with the end of the execution of the last one using C buffers
+  // FIXME add timing
+  impl->wait_to_activate();
+
+  // FIXME up activation through the whole graph using C buffers
+  // for each vertex in topo order
+  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+  {
+    impl->tmp_alloc( v );
+    if(dbn->is_input_vertex(v))
+    { // v's activation amounts to setting neuron energies from a training example
+    }
+    else
+    { // v gets activated by each of its in-edges:
+      bool first_one = true;
+      BOOST_FOREACH( Edge e, in_edges( v, dbn->m_graph ) )
+      {
+        impl->activate_edge( e, !first_one );
+        first_one = false;
+        // we can now free up some temporary memory, as the neuron batch operand that we just used to activate this vertex isn't needed anymore, unless it's a training vertex
+        Vertex sourcev = source( e, dbn->m_graph );
+        if( !dbn->is_in_training(sourcev) )
+          impl->tmp_free(sourcev);
+      }
+    }
+
+  }
+  
+
+  // synch with B-execution done and time it (it should be 0)
+  // FIXME add the timing
+  impl->wait_to_train();
+
+  // FIXME foreachtrainingedge: weight sample 1, sum with values in weights-B overwriting values in the weight-delta-C
+  // FIXME foreachtrainingedge: AGS steps down&up
+  // FIXME foreachtrainingedge: weight sample 2, subtracting from values in weight-delta-C writing to weight-B
+
+  // we're done with a training step on a vertex
+}
 
 void DeepBeliefNetworkScheduler::operator()()
 {
       Logger::log("seemstowork");
-  Cuda context(0);
-  Module module_test_kernels("src/test_kernels.cubin");
-  Function mmul( module_test_kernels, "mmul" );
-  Function mmultb( module_test_kernels, "mmul_transpose_b" );
-  //Function madd( module_test_kernels, "madd" );
   vector<Stream *> streams;
-
+  
+  /*
   // allocate device memory for the dbn:
   DeepBeliefNetworkMemoryMapper dmemory( dbn, batch_size, num_examples );
 
@@ -54,23 +107,7 @@ void DeepBeliefNetworkScheduler::operator()()
     int bufc = ((i+2)%3); // bufc weight buffers will be used for activation steps
     int streami = i%2;
 
-    // FIXME foreachinputvertex transfer examples into A buffer
-
-    // synch with the end of the execution of the last one using C buffers
-    // FIXME add timing
-    exec_end[bufc].synchronize();
-
-    // FIXME up activation through the whole graph using C buffers
-
-    // synch with B-execution done and time it (it should be 0)
-    // FIXME add the timing
-    exec_end[bufb].synchronize();
-
-    // FIXME foreachtrainingedge: weight sample 1, sum with values in weights-B overwriting values in the weight-delta-C
-    // FIXME foreachtrainingedge: AGS steps down&up
-    // FIXME foreachtrainingedge: weight sample 2, subtracting from values in weight-delta-C writing to weight-B
-
-    // we're done with a training step on a vertex
+    //training_process(this);
 
     if( time_to_stop )
       goto alldone;
@@ -85,6 +122,7 @@ void DeepBeliefNetworkScheduler::operator()()
   delete streams[1];
   delete streams[0];
   Logger::log("done!");
+  */
   
 }
 
@@ -101,11 +139,11 @@ DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork 
   , example_memory( example_memory_size() )
   , temporary_memory( temporary_memory_size() )
 {
-  cout << "constructing memory mapper..." << endl;
-  cout << "weights size: " << weights_memory_size() << endl;
-  cout << "example size: " << example_memory_size() << endl;
-  cout << "temporary size: " << temporary_memory_size() << endl;
-  cout << "weights delta size: " << weights_delta_memory_size() << endl;
+  //cout << "constructing memory mapper..." << endl;
+  //cout << "weights size: " << weights_memory_size() << endl;
+  //cout << "example size: " << example_memory_size() << endl;
+  //cout << "temporary size: " << temporary_memory_size() << endl;
+  //cout << "weights delta size: " << weights_delta_memory_size() << endl;
 
   // FIXME wrong
   // assign temp_ptr :
@@ -129,7 +167,6 @@ DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork 
 // so the answer is 6 times the size of the biggest operand (which is either a weight matrix or a batch of neuron values)
 int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 {
-  cout << "calculating temporary memory size" << endl;
   int max_size = 0;
   // set max_size to the size of the biggest neuron batch operand
   for_each( dbn->topological_order_begin()
@@ -166,12 +203,9 @@ int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 // FIXME only accomodates one input vertex
 int DeepBeliefNetworkMemoryMapper::example_memory_size()
 {
-  cout << "Calculating example memory size...";
   Vertex inputv = *dbn->topological_order_begin();
   int example_size = dbn->neurons_size(inputv);
   example_buffer_size = num_examples * example_size;
-  cout << " = " << example_buffer_size * 3 << " bytes" << endl;
-  cout << "because num_examples = " << num_examples << " and example_size = " << example_size << endl;
   return (example_buffer_size * 3);
 }
 
@@ -204,6 +238,11 @@ int DeepBeliefNetworkMemoryMapper::weight_matrix_size( Edge e )
   return (sourcevsize * targetvsize);
 }
 
+int DeepBeliefNetworkMemoryMapper::neurons_batch_size( Vertex v )
+{
+  return ( dbn->neurons_size(v) * batch_size );
+}
+
 void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool triple_buffered )
 {
   Vertex sourcev = source( e, dbn->m_graph );
@@ -221,7 +260,6 @@ void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool tr
 
 int DeepBeliefNetworkMemoryMapper::weights_memory_size()
 {
-  cout << "Calculating weights memory size";
   for_each( dbn->non_training_edges_begin()
           , dbn->non_training_edges_end()
           , lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
@@ -254,8 +292,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
                          )
             )
           );
-  cout << " = " << sizeof(float) * total_size << "bytes" << endl;
-
+  cout << "weights memory size = " << total_size << " floats " << endl;
   return (sizeof(float) * total_size);
 }
 

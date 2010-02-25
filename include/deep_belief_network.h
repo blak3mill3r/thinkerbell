@@ -17,6 +17,7 @@
 #include <boost/lambda/bind.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/serialization/scoped_ptr.hpp>
+#include <boost/foreach.hpp>
 
 #include "types.h"
 #include "neurons.h"
@@ -101,6 +102,16 @@ class DeepBeliefNetwork
 
     int weights_size( Edge e )
       { return (m_graph)[e].rbm->m_W.size(); }
+
+    Neurons * neurons( Vertex v )
+      { return (m_graph)[v].neurons; }
+
+    std::string neurons_name( Vertex v )
+      { return (m_graph)[v].name; }
+
+    bool is_in_training( Vertex v );
+    bool is_in_training( Edge e );
+    bool is_input_vertex( Vertex v );
 
   protected:
     void update_graph_metadata();

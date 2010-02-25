@@ -13,6 +13,38 @@ DeepBeliefNetwork::~DeepBeliefNetwork()
 {
 }
 
+// a vertex is an input vertex iff it has no in-edges
+bool DeepBeliefNetwork::is_input_vertex( Vertex v )
+{
+  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
+  tie(in_i, in_end) = in_edges( v, m_graph );
+  return ((in_end - in_i) == 0 );
+}
+
+bool DeepBeliefNetwork::is_in_training( Vertex v )
+{
+  bool is_training_vertex = false;
+  BOOST_FOREACH( Edge e, (in_edges(v, m_graph)) )
+    {
+      if( is_in_training( e ) ) { is_training_vertex = true; break; }
+    }
+  BOOST_FOREACH( Edge e, (out_edges(v, m_graph)) )
+    {
+      if( is_in_training( e ) ) { is_training_vertex = true; break; }
+    }
+  return is_training_vertex;
+}
+
+// an Edge is "in training" iff it's target has no out edges
+bool DeepBeliefNetwork::is_in_training( Edge e )
+{
+  Vertex v = target( e, m_graph );
+  graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
+  tie(out_i, out_end) = out_edges( v, m_graph );
+  return ((out_end - out_i)==0);
+}
+
+
 // create a connection from A to B
 Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
 {
