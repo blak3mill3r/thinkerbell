@@ -16,62 +16,15 @@ DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_
 {
 }
 
-template< class T >
-void DeepBeliefNetworkScheduler::training_process( T *impl
-                                                 , int read_weights_buffer_index
-                                                 , int write_buffer_index
-                                                 )
-{
-  // FIXME foreachinputvertex transfer examples into A buffer
-
-  // synch with the end of the execution of the last one using C buffers
-  // FIXME add timing
-  impl->wait_to_activate();
-
-  // FIXME up activation through the whole graph using C buffers
-  // for each vertex in topo order
-  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
-  {
-    impl->tmp_spaces_debug();
-    impl->tmp_alloc( v );
-    impl->tmp_spaces_debug();
-    if(dbn->is_input_vertex(v))
-    { // v's activation amounts to setting neuron energies from a training example
-    }
-    else
-    { // v gets activated by each of its in-edges:
-      bool first_one = true;
-      BOOST_FOREACH( Edge e, in_edges( v, dbn->m_graph ) )
-      {
-        impl->activate_edge( e, !first_one );
-        first_one = false;
-        // we can now free up some temporary memory, as the neuron batch operand that we just used to activate this vertex isn't needed anymore, unless it's a training vertex
-        Vertex sourcev = source( e, dbn->m_graph );
-        if( !dbn->is_in_training(sourcev) )
-          impl->tmp_free(sourcev);
-      }
-    }
-
-  }
-  
-
-  // synch with B-execution done and time it (it should be 0)
-  // FIXME add the timing
-  impl->wait_to_train();
-
-  // FIXME foreachtrainingedge: weight sample 1, sum with values in weights-B overwriting values in the weight-delta-C
-  // FIXME foreachtrainingedge: AGS steps down&up
-  // FIXME foreachtrainingedge: weight sample 2, subtracting from values in weight-delta-C writing to weight-B
-
-  // we're done with a training step on a vertex
-}
-
 void DeepBeliefNetworkScheduler::operator()()
 {
   Cuda context(0);
   Module module_test_kernels("src/test_kernels.cubin");
+  Module module_rng_kernels("src/mersenne_twister_kernels.cubin");
   Function mmul( module_test_kernels, "mmul" )
          , mmultb( module_test_kernels, "mmul_transpose_b" )
+         , activate_neurons( module_test_kernels, "activate_neurons" )
+         //, rng( module_rng_kernels, "rng" )
          ;
   // begin/end events for each buffer
   Event exec_begin[3];
@@ -81,46 +34,124 @@ void DeepBeliefNetworkScheduler::operator()()
   auto_ptr<DeviceMemory> example_memory( new DeviceMemory( dmemory->example_memory_size() ) );
   auto_ptr<DeviceMemory> temporary_memory( new DeviceMemory( dmemory->temporary_memory_size() ) );
 
-  vector<Stream *> streams;
+  // allocate device memory for the dbn:
   dmemory->allocate_device_memory( weights_memory->ptr(), example_memory->ptr(), temporary_memory->ptr() );
   
-  /*
-  // allocate device memory for the dbn:
-  DeepBeliefNetworkMemoryMapper dmemory( dbn, batch_size, num_examples );
-
   //////////////////////////////////////
   // get the triple buffering rolling...
   //////////////////////////////////////
 
   // 2 streams:
+  vector<Stream *> streams;
   streams.push_back(new Stream());
   streams.push_back(new Stream());
-
-  // begin/end events for each buffer
-  Event exec_begin[3];
-  Event exec_end[3];
 
   // first 2 steps are different:
   // there is no batch finishing with the current buffer
   exec_end[3].record( *streams[0] );
   exec_end[0].record( *streams[1] );
-  // FIXME foreachinputvertex alloc space in A B C
-  // FIXME xfer examples into buffers B and C
+  // FIXME xfer examples into buffers A, B and C
 
   while(true)
   for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
   {
     // this gives us three phases
     int bufa = ((i+0)%3); // bufa weights will be written to because it will be bufc next iteration and will be used for activation steps
-    int bufb = ((i+1)%3); // 
+    int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
     int bufc = ((i+2)%3); // bufc weight buffers will be used for activation steps
     int streami = i%2;
 
-    //training_process(this);
+    choose_random_example();
+
+    // FIXME sometimes transfer examples into A buffer
+    //BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
+    //{
+    //  activate_from_example(inputv);
+    //}
+
+    // synch with the end of the execution of the last one using A buffers
+    exec_end[bufa].synchronize();
+
+    // for each vertex in topo order
+    BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+    {
+      //tmp_spaces_debug();
+      if(dbn->is_input_vertex(v))
+      { // v's activation amounts to setting neuron energies from a training example
+        activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+        activate_neurons.go( dbn->neurons_size( v ) / BLOCK_SIZE
+                           , batch_size / BLOCK_SIZE
+                           , (*streams[streami])
+                           , dmemory->vertex_ptr(v, bufa)//FIXME the address where to find the example
+                           , dmemory->vertex_ptr(v, bufa)
+                           , dmemory->vertex_ptr(v, bufa)//FIXME where to find randoms (which wont be used) .. can I pass NULL safely?
+                           , dbn->neurons_size(v)
+                           , false
+                           );
+      }
+      else
+      { // v gets activated by each of its in-edges:
+        bool first_one = true;
+        BOOST_FOREACH( Edge e, in_edges( v, dbn->m_graph ) )
+        {
+          Vertex sourcev = source( e, dbn->m_graph )
+               , targetv = target( e, dbn->m_graph )
+               ;
+          int sourcev_size = dbn->neurons_size( sourcev )
+            , targetv_size = dbn->neurons_size( targetv )
+            ;
+          mmul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+          if(first_one)
+          {
+            mmul.go( targetv_size / BLOCK_SIZE
+                   , batch_size / BLOCK_SIZE
+                   , *(streams[streami])
+                   , dmemory->vertex_ptr( targetv, bufa )
+                   , dmemory->vertex_ptr( sourcev, bufa )
+                   , dmemory->weights_ptr( e, bufa )
+                   , NULL
+                   , true
+                   , sourcev_size
+                   , targetv_size
+                   );
+            first_one = false;
+          } else {
+            mmul.go( targetv_size / BLOCK_SIZE
+                   , batch_size / BLOCK_SIZE
+                   , *(streams[streami])
+                   , dmemory->vertex_ptr( targetv, bufa )
+                   , dmemory->vertex_ptr( sourcev, bufa )
+                   , dmemory->weights_ptr( e, bufa )
+                   , dmemory->vertex_ptr( targetv, bufa )
+                   , false
+                   , sourcev_size
+                   , targetv_size
+                   );
+          }
+        }
+      }
+      // set v's activations based on energies
+      activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+      activate_neurons.go( dbn->neurons_size( v ) / BLOCK_SIZE
+                         , batch_size / BLOCK_SIZE
+                         , (*streams[streami])
+                         , dmemory->vertex_ptr(v, bufa)
+                         , dmemory->vertex_ptr(v, bufa)
+                         , dmemory->vertex_ptr(v, bufa)// FIXME address of randoms
+                         , dbn->neurons_size(v)
+                         , true
+                         );
+
+    }
+    
+    // synch with B-execution done
+    // we're expecting not to wait here but better safe than sorry
+    exec_end[bufc].synchronize();
+
+    exec_end[bufa].record( *(streams[streami]) );
 
     if( time_to_stop )
       goto alldone;
-
   }
 
   alldone:
@@ -131,7 +162,6 @@ void DeepBeliefNetworkScheduler::operator()()
   delete streams[1];
   delete streams[0];
   Logger::log("done!");
-  */
   
 }
 
@@ -156,11 +186,6 @@ void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_me
                                                           , DevicePtr temporary_memory_ptr_
                                                           )
 {
-  cout << "Device Memory: " << endl;
-  cout << "---------------" << endl;
-  cout << "weights size: " << weights_memory_size() << endl;
-  cout << "example size: " << example_memory_size() << endl;
-  cout << "temporary size: " << temporary_memory_size() << endl;
 
   weights_memory_ptr = weights_memory_ptr_;
   example_memory_ptr = example_memory_ptr_;
@@ -168,20 +193,33 @@ void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_me
 
   map_temporary_ptrs();
 
-  //DevicePtr currentp = weights_memory->ptr();
+  DevicePtr currentp = weights_memory_ptr;
 
-  //// iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
-  //for_each( weights_memory_layout_map.begin()
-  //        , weights_memory_layout_map.end()
-  //        , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
-  //        );
+  // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
+  for_each( weights_memory_layout_map.begin()
+          , weights_memory_layout_map.end()
+          , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
+          );
 }
 
 int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 {
-  // FIXME the scheduler is not fully constructed yet when I call this ...
-  dbn_scheduler->training_process( this );
-  return temporary_memory_minimum_size;
+  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+  {
+    tmp_alloc( v );
+    //tmp_spaces_debug();
+    if(!dbn->is_input_vertex(v))
+    { // v gets activated by each of its in-edges:
+      bool first_one = true;
+      BOOST_FOREACH( Edge e, in_edges( v, dbn->m_graph ) )
+      {
+        activate_edge( e, !first_one );
+        first_one = false;
+      }
+    }
+
+  }
+  return temporary_memory_minimum_size*3;
 }
 
 

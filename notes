@@ -66,3 +66,64 @@ step through training process
 
 little things
 move all the DeepBeliefNetwork* classes into a namespace deep_belief_network
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+           |---|   |
+           |   |   |
+           | A |---|
+           |   |   |
+           |---| B |
+           |   |   |
+           | C |---|
+           |   |   |
+           |---| A |
+           |   |   |
+           | B |---|
+           |   |   |
+   t0   -->|---| C |
+           |   |   |
+           | A |---|<--    t1
+           |   |   |
+   t2   -->|---| B |
+           |   |   |
+           | C |---|
+           |   |   |
+
+
+at t0
+synch with A-exec-finished in other stream
+up activate through graph
+synch with C-exec-finished in other stream
+positive weight adjust step, weights-C = weights-B + delta
+2 ags steps
+negative weight adjust step, weights-C = weights-C - delta
+record A-exec-finished
+
+at t1
+synch with B-exec-finished in other stream
+up activate through graph
+synch with A-exec-finished in other stream
+positive weight adjust step, weights-A = weights-C + delta
+2 ags steps
+negative weight adjust step, weights-A = weights-A - delta
+record B-exec-finished
+
+name change
+vertex_ptr -> neurons_ptr
+
+

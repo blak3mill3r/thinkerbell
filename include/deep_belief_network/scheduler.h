@@ -55,30 +55,21 @@ public:
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
 
-  DevicePtr weights_delta_ptr( Edge e, int buffer_index )
-    { return weights_delta_ptr_map[e][buffer_index]; }
-
   DevicePtr examples_ptr( int buffer_index )
     { return (example_memory_ptr + (sizeof(float) * buffer_index * example_buffer_size)); }
 
-  // the training process concept:
-  inline void wait_to_activate() {}
-  inline void wait_to_train() {}
-  inline void activate_vertex( Vertex v )
-  {
-  }
+  DevicePtr vertex_ptr( Vertex v, int buffer_index )
+    { return (temporary_vertex_memory_ptr[v][buffer_index]); }
+
 
   inline void activate_edge( Edge e, bool add_to_result )
   {
-    cout << "activate_edge " << e << ":\t";
-    cout << "training edge: " << (dbn->is_in_training(e) ? "yes" : "no" ) << ":\t" << endl;
-    
+    // we can now free up some temporary memory, as the neuron batch operand that we just used to activate this vertex isn't needed anymore, unless it's a training vertex
+    Vertex sourcev = source( e, dbn->m_graph );
+    if( !dbn->is_in_training(sourcev) ) tmp_free(sourcev);
+    if( dbn->is_in_training(sourcev) ) cout << "Not freeing vertex " << dbn->neurons_name(sourcev) << " because it's a training vertex." << endl;
   }
 
-  inline void tmp_alloc( Edge e )
-  {
-    
-  }
   inline void tmp_alloc( Vertex v )
   {
     map<Vertex,int>::iterator found = temporary_vertex_memory_offsets.find(v);
@@ -89,7 +80,6 @@ public:
     }
   }
 
-  inline void tmp_free( Edge e ) {}
   inline void tmp_free( Vertex v )
   {
     map<Vertex,int>::iterator foundi = temporary_vertex_memory_offsets.find(v);
@@ -110,8 +100,12 @@ public:
     pair<Vertex,int> current;
     BOOST_FOREACH( current, make_pair(temporary_vertex_memory_offsets.begin(), temporary_vertex_memory_offsets.end()))
     {
-      DevicePtr p = temporary_memory_ptr + current.second;
-      temporary_vertex_memory_ptr[current.first] = p;
+      DevicePtr p0 = temporary_memory_ptr + (0*temporary_memory_minimum_size) + current.second;
+      DevicePtr p1 = temporary_memory_ptr + (1*temporary_memory_minimum_size) + current.second;
+      DevicePtr p2 = temporary_memory_ptr + (2*temporary_memory_minimum_size) + current.second;
+      temporary_vertex_memory_ptr[current.first].push_back(p0);
+      temporary_vertex_memory_ptr[current.first].push_back(p1);
+      temporary_vertex_memory_ptr[current.first].push_back(p2);
     } 
   }
 
@@ -130,6 +124,11 @@ public:
     {
       cout << current.first << "\t-\t" << current.second << "\n";
     }
+    pair<Vertex,int> vert;
+    BOOST_FOREACH( vert, make_pair(temporary_vertex_memory_offsets.begin(),temporary_vertex_memory_offsets.end()))
+    {
+      cout << dbn->neurons_name(vert.first) << ": " << vert.second << "\n";
+    }
     cout << endl;
   }
 private:
@@ -137,12 +136,12 @@ private:
   inline int tmp_alloc( int size )
   {
     int offset_begin, offset_end;
-    cout << "allocating " << size << " bytes of temp space" << endl;
+    //cout << "allocating " << size << " bytes of temp space" << endl;
     // look for an available free space
     pair<int,int> current, workable;
     BOOST_FOREACH( current, make_pair(temporary_memory_free.begin(),temporary_memory_free.end()) )
     {
-      cout << "looking... examining " << current.first << " through " << current.second << endl;
+      //cout << "examining " << current.first << " through " << current.second << endl;
       if(current.second - current.first >= size) workable = current;
     }
     list<pair<int,int> >::iterator foundi = 
@@ -152,14 +151,12 @@ private:
         );
     if( temporary_memory_free.end() == foundi )
     {
-      cout << "no suitable space found, expanding by " << size << "... ";
+      //cout << "no suitable space found, expanding by " << size << "... ";
       // no suitable space was found, we'll need to expand
-      offset_begin = temporary_memory_free.empty()
-                   ? (temporary_memory_allocated.empty() ? 0 : temporary_memory_allocated.back().second)
-                   : temporary_memory_free.back().second;
+      offset_begin = temporary_memory_minimum_size;
       temporary_memory_minimum_size = max(temporary_memory_minimum_size, (offset_begin + size));
-      cout << "offset is " << offset_begin << endl;
-      cout << "new min size = " << temporary_memory_minimum_size << endl;
+      //cout << "offset is " << offset_begin << endl;
+      //cout << "new min size = " << temporary_memory_minimum_size << endl;
     }
     else
     {
@@ -169,19 +166,19 @@ private:
       int leftover = (temp.second - temp.first) - size;
       if(leftover > 0)
       {
-        cout << "There's leftover space amounting to " << leftover << endl;
+        //cout << "There's leftover space amounting to " << leftover << endl;
         temp.first += size;
         temporary_memory_free.push_back(temp);
         offset_begin = temporary_memory_free.back().first;
       }
       else
       {
-        cout << "There's no leftover space..." << endl;
+        //cout << "There's no leftover space..." << endl;
         offset_begin = temp.first;
       }
     }
     offset_end = offset_begin + size;
-    cout << "Allocating in the suitable free space " << offset_begin << " to " << offset_end << endl;
+    //cout << "Allocating in the suitable free space " << offset_begin << " to " << offset_end << endl;
     temporary_memory_allocated.push_back(make_pair(offset_begin, offset_end));
     return offset_begin;
     
@@ -189,21 +186,19 @@ private:
 
   inline void tmp_free( int offset )
   {
-    cout << "tmp_free(" << offset << ")" << endl;
+    //cout << "tmp_free(" << offset << ")" << endl;
     pair<int,int> range_to_free;
     pair<int,int> current;
     bool found = false;
     BOOST_FOREACH( current, make_pair(temporary_memory_allocated.begin(), temporary_memory_allocated.end()) )
     {
-      cout << "Examining free space starting at " << current.first << endl;
-      cout << "We're looking for " << offset << endl;
       if(current.first == offset) {
         found = true;
         range_to_free = current;
       }
     }
     if(!found) throw("baderror");
-    cout << "memory range to free = " << range_to_free.first << " through " << range_to_free.second << endl;
+    //cout << "memory range to free = " << range_to_free.first << " through " << range_to_free.second << endl;
     list<pair<int,int> >::iterator foundi = 
     find( temporary_memory_allocated.begin()
         , temporary_memory_allocated.end()
@@ -214,7 +209,7 @@ private:
     else
     {
       pair<int,int> zzz = *foundi;
-      cout << "Freeing temporary memory range: " << zzz.first  << " to " << zzz.second << endl;
+      //cout << "Freeing temporary memory range: " << zzz.first  << " to " << zzz.second << endl;
       // FIXME sanity check...
       temporary_memory_allocated.erase(foundi);
       temporary_memory_free.push_back( zzz );
@@ -225,7 +220,7 @@ private:
   map<Edge,int>         temporary_edge_memory_offsets;
   map<Vertex,int>       temporary_vertex_memory_offsets;
   map<Edge,DevicePtr>   temporary_edge_memory_ptr;
-  map<Vertex,DevicePtr> temporary_vertex_memory_ptr;
+  map<Vertex,vector<DevicePtr> > temporary_vertex_memory_ptr;
   list<pair<int,int> > temporary_memory_allocated;
   list<pair<int,int> > temporary_memory_free;
   DevicePtr             temporary_memory_ptr
@@ -239,7 +234,6 @@ public:
 private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
-  DevicePtr map_weights_delta_ptrs( const pair<Edge,int> &edge_and_size, DevicePtr p );
   int weight_matrix_size( Edge e );
   int neurons_batch_size( Vertex v );
 
@@ -257,8 +251,7 @@ protected:
  
    // for each Edge, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the weights will not be written to)
-   map<Edge, vector< DevicePtr > > weights_ptr_map
-                                 , weights_delta_ptr_map;
+   map<Edge, vector< DevicePtr > > weights_ptr_map;
  
 };
 
@@ -271,6 +264,9 @@ private:
   auto_ptr<DeepBeliefNetworkMemoryMapper> dmemory;
   volatile bool time_to_stop;
 
+  inline void choose_random_example() {}
+
+
 public:
   explicit
   DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
@@ -278,12 +274,6 @@ public:
   void stop() { time_to_stop = true; }
 
   void operator()();
-
-  template< class T >
-  void training_process( T *impl
-                       , int read_weights_buffer_index = 0
-                       , int write_buffer_index = 0
-                       );
 
 };
 

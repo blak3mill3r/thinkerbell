@@ -46,11 +46,10 @@ BOOST_AUTO_TEST_CASE( foo )
  
   DeepBeliefNetworkScheduler scheduler( &dbn, BATCH_SIZE, NUM_EXAMPLES_PER_BUFFER );
 
-  sleep(2);
   Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );
 
-  sleep(2);
+  sleep(10);
   Logger::log("sending stop signal");
   scheduler.stop();
   scheduler_thread.join();

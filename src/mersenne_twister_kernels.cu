@@ -8,7 +8,7 @@
 __device__ static mt_struct_stripped ds_MT[MT_RNG_COUNT];
 static mt_struct_stripped h_MT[MT_RNG_COUNT];
 
-
+/*
 //Load twister configurations
 void loadMTGPU(const char *fname){
     FILE *fd = fopen(fname, "rb");
@@ -39,6 +39,7 @@ void seedMTGPU(unsigned int seed){
 
     free(MT);
 }
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,3 +128,4 @@ __global__ void BoxMullerGPU(float *d_Random, int NPerRng){
                 d_Random[iRng + (iOut + 1) * MT_RNG_COUNT]
             );
 }
+#endif

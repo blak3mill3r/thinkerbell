@@ -89,13 +89,15 @@ class DeepBeliefNetwork
     Edge connect( const Vertex &va, const Vertex &vb );
     list<Vertex>::const_iterator topological_order_begin() const { return m_topological_order.begin(); }
     list<Vertex>::const_iterator topological_order_end() const { return m_topological_order.end(); }
+    list<Vertex>::const_iterator input_vertices_begin() const { return m_input_vertices.begin(); }
+    list<Vertex>::const_iterator input_vertices_end() const { return m_input_vertices.end(); }
     list<Edge>::const_iterator training_edges_begin() const { return m_training_edges.begin(); }
     list<Edge>::const_iterator training_edges_end() const { return m_training_edges.end(); }
     list<Edge>::const_iterator non_training_edges_begin() const { return m_non_training_edges.begin(); }
     list<Edge>::const_iterator non_training_edges_end() const { return m_non_training_edges.end(); }
     list<Edge>::const_iterator all_edges_begin() const { return m_all_edges.begin(); }
     list<Edge>::const_iterator all_edges_end() const { return m_all_edges.end(); }
-    DeepBeliefNetworkGraph m_graph; // FIXME this should be protected, maybe make DeepBeliefNetworkScheduler a friend class
+    DeepBeliefNetworkGraph m_graph;
 
     int neurons_size( Vertex v )
       { return (m_graph)[v].neurons->size(); }
@@ -116,6 +118,7 @@ class DeepBeliefNetwork
   protected:
     void update_graph_metadata();
     list<Vertex> m_topological_order;
+    list<Vertex> m_input_vertices;
     list<Edge> m_training_edges;
     list<Edge> m_non_training_edges;
     list<Edge> m_all_edges;

@@ -82,7 +82,13 @@ void DeepBeliefNetwork::update_graph_metadata()
   m_training_edges.clear();
   m_non_training_edges.clear();
   m_all_edges.clear();
+  m_input_vertices.clear();
   topological_sort(m_graph, std::front_inserter(m_topological_order));
+
+  BOOST_FOREACH( Vertex currentv, m_topological_order )
+  {
+    if( is_input_vertex(currentv) ) m_input_vertices.push_back(currentv);
+  }
 
   graph_traits< DeepBeliefNetworkGraph >::edge_iterator ei, eend;
   // build lists of training edges and non-training edges

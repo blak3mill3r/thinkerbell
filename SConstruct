@@ -21,6 +21,7 @@ env['CCFLAGS'] += ['-g' ]
 
 env.SharedLibrary( source = libthinkerbell_sources, target = 'lib/thinkerbell' )
 env.Cubin( 'src/rbm_kernels', NVCCPATH = env['CPPPATH'] )
+env.Cubin( 'src/mersenne_twister_kernels', NVCCPATH = env['CPPPATH'] )
 env.Cubin( 'src/test_kernels', NVCCPATH = env['CPPPATH'] )
 env.Command( 'tags', libthinkerbell_sources + libthinkerbell_headers, 'ctags -o $TARGET $SOURCES' )
 
