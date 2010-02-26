@@ -15,12 +15,12 @@
 #include <boost/test/unit_test.hpp>
 #include "logger.h"
 
-#define A_SIZE 16
-#define B_SIZE 16
-#define C_SIZE 16
-#define D_SIZE 16
+#define A_SIZE 256
+#define B_SIZE 256
+#define C_SIZE 256
+#define D_SIZE 256
 #define L_SIZE 16
-#define BATCH_SIZE 1
+#define BATCH_SIZE 64
 #define NUM_EXAMPLES_PER_BUFFER 64
 
 #define BOOST_TEST_MODULE thinkerbell_test_suite
@@ -46,6 +46,7 @@ BOOST_AUTO_TEST_CASE( foo )
  
   DeepBeliefNetworkScheduler scheduler( &dbn, BATCH_SIZE, NUM_EXAMPLES_PER_BUFFER );
 
+  sleep(2);
   Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );
 

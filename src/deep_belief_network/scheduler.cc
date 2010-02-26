@@ -7,19 +7,13 @@ using boost::lambda::bind;
 using boost::lambda::_1;
 
 DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
-  : context(0)
-  , module_test_kernels("src/test_kernels.cubin")
-  , mmul( module_test_kernels, "mmul" )
-  , mmultb( module_test_kernels, "mmul_transpose_b" )
 //, madd( module_test_kernels, "madd" )
-  , batch_size( batch_size_ )
+  : batch_size( batch_size_ )
   , dbn( dbn_ )
   , num_examples( num_examples_ )
   , time_to_stop( false )
-  , dmemory( dbn_, batch_size_, num_examples_ )
-    
+  , dmemory( new DeepBeliefNetworkMemoryMapper( this, dbn, batch_size, num_examples ) )
 {
-  training_process<DeepBeliefNetworkMemoryMapper>( &dmemory );
 }
 
 template< class T >
@@ -38,7 +32,9 @@ void DeepBeliefNetworkScheduler::training_process( T *impl
   // for each vertex in topo order
   BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
   {
+    impl->tmp_spaces_debug();
     impl->tmp_alloc( v );
+    impl->tmp_spaces_debug();
     if(dbn->is_input_vertex(v))
     { // v's activation amounts to setting neuron energies from a training example
     }
@@ -72,8 +68,21 @@ void DeepBeliefNetworkScheduler::training_process( T *impl
 
 void DeepBeliefNetworkScheduler::operator()()
 {
-      Logger::log("seemstowork");
+  Cuda context(0);
+  Module module_test_kernels("src/test_kernels.cubin");
+  Function mmul( module_test_kernels, "mmul" )
+         , mmultb( module_test_kernels, "mmul_transpose_b" )
+         ;
+  // begin/end events for each buffer
+  Event exec_begin[3];
+  Event exec_end[3];
+
+  auto_ptr<DeviceMemory> weights_memory( new DeviceMemory( dmemory->weights_memory_size() ) );
+  auto_ptr<DeviceMemory> example_memory( new DeviceMemory( dmemory->example_memory_size() ) );
+  auto_ptr<DeviceMemory> temporary_memory( new DeviceMemory( dmemory->temporary_memory_size() ) );
+
   vector<Stream *> streams;
+  dmemory->allocate_device_memory( weights_memory->ptr(), example_memory->ptr(), temporary_memory->ptr() );
   
   /*
   // allocate device memory for the dbn:
@@ -128,75 +137,51 @@ void DeepBeliefNetworkScheduler::operator()()
 
 
 // FIXME todo for the mapper: weight_delta_memory should be zeroed before starting
-DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
+DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_
+                                                            , DeepBeliefNetwork * dbn_
+                                                            , int batch_size_
+                                                            , int num_examples_
+                                                            )
   : dbn( dbn_ )
+  , dbn_scheduler( dbn_scheduler_ )
   , batch_size( batch_size_ )
   , num_examples( num_examples_ )
-  , weights_memory_layout_map()
-  , weights_ptr_map()
-  , weights_memory( weights_memory_size() )
-  , weights_delta_memory( weights_delta_memory_size() )
-  , example_memory( example_memory_size() )
-  , temporary_memory( temporary_memory_size() )
+  , temporary_memory_minimum_size(0)
 {
-  //cout << "constructing memory mapper..." << endl;
-  //cout << "weights size: " << weights_memory_size() << endl;
-  //cout << "example size: " << example_memory_size() << endl;
-  //cout << "temporary size: " << temporary_memory_size() << endl;
-  //cout << "weights delta size: " << weights_delta_memory_size() << endl;
-
-  // FIXME wrong
-  // assign temp_ptr :
-  for(int f=0; f<3; ++f)
-  for(int u=0; u<2; ++u)
-    temp_ptr[f][u] = temporary_memory.ptr()
-                   + (sizeof(float) * temporary_buffer_size * (u * 3 + f));
-
-  DevicePtr currentp = weights_memory.ptr();
-
-  // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
-  for_each( weights_memory_layout_map.begin()
-          , weights_memory_layout_map.end()
-          , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
-          );
+  cout << "Constructozoid!" << endl;
 }
 
+void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
+                                                          , DevicePtr example_memory_ptr_
+                                                          , DevicePtr temporary_memory_ptr_
+                                                          )
+{
+  cout << "Device Memory: " << endl;
+  cout << "---------------" << endl;
+  cout << "weights size: " << weights_memory_size() << endl;
+  cout << "example size: " << example_memory_size() << endl;
+  cout << "temporary size: " << temporary_memory_size() << endl;
 
-// two temporary spaces (so operations requiring temporary space can alternate back and forth, reading/writing from these two alternately)
-// times three buffers (triple buffering)
-// so the answer is 6 times the size of the biggest operand (which is either a weight matrix or a batch of neuron values)
+  weights_memory_ptr = weights_memory_ptr_;
+  example_memory_ptr = example_memory_ptr_;
+  temporary_memory_ptr = temporary_memory_ptr_; 
+
+  map_temporary_ptrs();
+
+  //DevicePtr currentp = weights_memory->ptr();
+
+  //// iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
+  //for_each( weights_memory_layout_map.begin()
+  //        , weights_memory_layout_map.end()
+  //        , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
+  //        );
+}
+
 int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 {
-  int max_size = 0;
-  // set max_size to the size of the biggest neuron batch operand
-  for_each( dbn->topological_order_begin()
-          , dbn->topological_order_end()
-          , var(max_size) = bind(
-                              &std::max<int>,
-                              var(max_size),
-                              bind(
-                                &DeepBeliefNetwork::neurons_size,
-                                dbn,
-                                _1)
-                            )
-          );
-
-  max_size *= batch_size;
-
-  // set max_size to the size of the biggest weight matrix operand iff its bigger than max_size
-  for_each( dbn->all_edges_begin()
-          , dbn->all_edges_end()
-          , var(max_size) = ret<int>(lambda::bind(
-                              &std::max<int>,
-                              var(max_size),
-                              lambda::bind(
-                                &DeepBeliefNetwork::weights_size,
-                                dbn,
-                                _1)
-                            ))
-          );
-
-  return (sizeof(float) * max_size * 6);
+  // FIXME the scheduler is not fully constructed yet when I call this ...
+  dbn_scheduler->training_process( this );
+  return temporary_memory_minimum_size;
 }
 
 
@@ -260,22 +245,15 @@ void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool tr
 
 int DeepBeliefNetworkMemoryMapper::weights_memory_size()
 {
-  for_each( dbn->non_training_edges_begin()
-          , dbn->non_training_edges_end()
-          , lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
-                               , this
-                               , _1
-                               , constant(false) // not a training edge
-                               )
-          );
-  for_each( dbn->training_edges_begin()
-          , dbn->training_edges_end()
-          , lambda::bind( &DeepBeliefNetworkMemoryMapper::weights_memory_requirements
-                               , this
-                               , _1
-                               , constant(true) // a training edge
-                               )
-          );
+  Edge current;
+  BOOST_FOREACH( current, make_pair(dbn->non_training_edges_begin(),dbn->non_training_edges_end()) )
+  {
+    weights_memory_requirements(current, false);
+  }
+  BOOST_FOREACH( current, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
+  {
+    weights_memory_requirements(current, true);
+  }
 
   int total_size = 0;
 
@@ -293,31 +271,6 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
             )
           );
   cout << "weights memory size = " << total_size << " floats " << endl;
-  return (sizeof(float) * total_size);
-}
-
-int DeepBeliefNetworkMemoryMapper::weights_delta_memory_size()
-{
-  int total_size = 0;
-  for_each( dbn->training_edges_begin()
-          , dbn->training_edges_end()
-          , var(total_size) = var(total_size)
-          + lambda::bind( &DeepBeliefNetworkMemoryMapper::weight_matrix_size
-                        , this
-                        , _1
-                        )
-          );
-
-  for_each( weights_delta_memory_layout_map.begin()
-          , weights_delta_memory_layout_map.end()
-          , (var(total_size) = var(total_size) + 
-                ret<int>( lambda::bind( &pair<Edge,int>::second
-                                      , _1
-                                      )
-                        )
-            )
-          );
-
   return (sizeof(float) * total_size);
 }
 

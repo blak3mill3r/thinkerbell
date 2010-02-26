@@ -46,13 +46,11 @@ using boost::lambda::bind;
 
 class DeepBeliefNetworkScheduler;
 
-class DeepBeliefNetworkMemoryMapper
+class DeepBeliefNetworkMemoryMapper : noncopyable
 {
 public:
-  DeepBeliefNetworkMemoryMapper( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
-
-  DevicePtr temporaries_ptr( int buffer_index, int temporary_space_index )
-    { return temp_ptr[buffer_index][temporary_space_index]; }
+  DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_, DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
+  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr);
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
@@ -61,7 +59,7 @@ public:
     { return weights_delta_ptr_map[e][buffer_index]; }
 
   DevicePtr examples_ptr( int buffer_index )
-    { return (example_memory.ptr() + (sizeof(float) * buffer_index * example_buffer_size)); }
+    { return (example_memory_ptr + (sizeof(float) * buffer_index * example_buffer_size)); }
 
   // the training process concept:
   inline void wait_to_activate() {}
@@ -106,7 +104,34 @@ public:
     }
   }
 
+  // transform int offsets into DevicePtrs
+  void map_temporary_ptrs()
+  {
+    pair<Vertex,int> current;
+    BOOST_FOREACH( current, make_pair(temporary_vertex_memory_offsets.begin(), temporary_vertex_memory_offsets.end()))
+    {
+      DevicePtr p = temporary_memory_ptr + current.second;
+      temporary_vertex_memory_ptr[current.first] = p;
+    } 
+  }
 
+
+
+  inline void tmp_spaces_debug()
+  {
+    cout << "Debug temp spaces:\n----------------------\nfree:\n-------------------\n";
+    pair<int,int> current;
+    BOOST_FOREACH( current, make_pair(temporary_memory_free.begin(),temporary_memory_free.end()))
+    {
+      cout << current.first << "\t-\t" << current.second << "\n";
+    }
+    cout << "allocated:\n--------------\n";
+    BOOST_FOREACH( current, make_pair(temporary_memory_allocated.begin(),temporary_memory_allocated.end()))
+    {
+      cout << current.first << "\t-\t" << current.second << "\n";
+    }
+    cout << endl;
+  }
 private:
 
   inline int tmp_alloc( int size )
@@ -144,12 +169,19 @@ private:
       int leftover = (temp.second - temp.first) - size;
       if(leftover > 0)
       {
+        cout << "There's leftover space amounting to " << leftover << endl;
         temp.first += size;
         temporary_memory_free.push_back(temp);
         offset_begin = temporary_memory_free.back().first;
       }
+      else
+      {
+        cout << "There's no leftover space..." << endl;
+        offset_begin = temp.first;
+      }
     }
     offset_end = offset_begin + size;
+    cout << "Allocating in the suitable free space " << offset_begin << " to " << offset_end << endl;
     temporary_memory_allocated.push_back(make_pair(offset_begin, offset_end));
     return offset_begin;
     
@@ -160,10 +192,17 @@ private:
     cout << "tmp_free(" << offset << ")" << endl;
     pair<int,int> range_to_free;
     pair<int,int> current;
+    bool found = false;
     BOOST_FOREACH( current, make_pair(temporary_memory_allocated.begin(), temporary_memory_allocated.end()) )
     {
-      if(current.first == offset) range_to_free = current;
+      cout << "Examining free space starting at " << current.first << endl;
+      cout << "We're looking for " << offset << endl;
+      if(current.first == offset) {
+        found = true;
+        range_to_free = current;
+      }
     }
+    if(!found) throw("baderror");
     cout << "memory range to free = " << range_to_free.first << " through " << range_to_free.second << endl;
     list<pair<int,int> >::iterator foundi = 
     find( temporary_memory_allocated.begin()
@@ -182,17 +221,22 @@ private:
     }
   }
 
+  int temporary_memory_minimum_size;
   map<Edge,int>         temporary_edge_memory_offsets;
   map<Vertex,int>       temporary_vertex_memory_offsets;
   map<Edge,DevicePtr>   temporary_edge_memory_ptr;
   map<Vertex,DevicePtr> temporary_vertex_memory_ptr;
   list<pair<int,int> > temporary_memory_allocated;
   list<pair<int,int> > temporary_memory_free;
-  int temporary_memory_minimum_size;
+  DevicePtr             temporary_memory_ptr
+          ,             example_memory_ptr
+          ,             weights_memory_ptr
+          ;
+public:
   int temporary_memory_size();
   int example_memory_size();
   int weights_memory_size();
-  int weights_delta_memory_size();
+private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
   DevicePtr map_weights_delta_ptrs( const pair<Edge,int> &edge_and_size, DevicePtr p );
@@ -201,6 +245,7 @@ private:
 
 protected:
   DeepBeliefNetwork * dbn;
+  DeepBeliefNetworkScheduler * dbn_scheduler;
   int batch_size
     , num_examples
     , example_buffer_size
@@ -209,50 +254,22 @@ protected:
  
    // the int is the size, the bool is triple-buffering
    map<Edge, pair< int, bool > > weights_memory_layout_map;
-   // all weight delta buffers will be triple-buffered
-   map<Edge, int > weights_delta_memory_layout_map;
  
    // for each Edge, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the weights will not be written to)
    map<Edge, vector< DevicePtr > > weights_ptr_map
                                  , weights_delta_ptr_map;
  
-   // (2 operand temporaries) in each of 3 phases
-   // FIXME this is wrong
-   DevicePtr temp_ptr[3][2];
- 
-   DeviceMemory weights_memory
-              , weights_delta_memory
-              , example_memory
-              , temporary_memory
-              ;
-
 };
 
 class DeepBeliefNetworkScheduler : noncopyable
 {
 private:
-  Cuda context;
-  Module module_test_kernels;
-  Function mmul
-         , mmultb
-         ;
-
-  // begin/end events for each buffer
-  Event exec_begin[3];
-  Event exec_end[3];
-
   int batch_size;
   int num_examples;
   DeepBeliefNetwork * dbn;
-  DeepBeliefNetworkMemoryMapper dmemory;
+  auto_ptr<DeepBeliefNetworkMemoryMapper> dmemory;
   volatile bool time_to_stop;
-
-  template< class T >
-  void training_process( T *impl
-                       , int read_weights_buffer_index = 0
-                       , int write_buffer_index = 0
-                       );
 
 public:
   explicit
@@ -261,6 +278,12 @@ public:
   void stop() { time_to_stop = true; }
 
   void operator()();
+
+  template< class T >
+  void training_process( T *impl
+                       , int read_weights_buffer_index = 0
+                       , int write_buffer_index = 0
+                       );
 
 };
 
