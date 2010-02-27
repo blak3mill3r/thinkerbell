@@ -19,7 +19,7 @@
 #define B_SIZE 256
 #define C_SIZE 256
 #define D_SIZE 256
-#define L_SIZE 16
+#define L_SIZE 256
 #define BATCH_SIZE 64
 #define NUM_EXAMPLES_PER_BUFFER 64
 
@@ -33,10 +33,10 @@ BOOST_AUTO_TEST_CASE( foo )
   Logger::log("init..");
   DeepBeliefNetwork dbn;
   Vertex vA = dbn.add_neurons( A_SIZE, "visible" )
+       , vL = dbn.add_neurons( L_SIZE, "labels" )
        , vB = dbn.add_neurons( B_SIZE, "hidden 1" )
        , vC = dbn.add_neurons( C_SIZE, "hidden 2" )
        , vD = dbn.add_neurons( D_SIZE, "hidden 3" )
-       , vL = dbn.add_neurons( L_SIZE, "labels" )
        ;
 
   dbn.connect( vA, vB );
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( foo )
   Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );
 
-  sleep(10);
+  sleep(3);
   Logger::log("sending stop signal");
   scheduler.stop();
   scheduler_thread.join();

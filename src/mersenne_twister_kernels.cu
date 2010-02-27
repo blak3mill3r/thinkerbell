@@ -51,9 +51,11 @@ void seedMTGPU(unsigned int seed){
 // The local seeds, in their turn, can be extracted from global seed
 // by means of any simple random number generator, like LCG.
 ////////////////////////////////////////////////////////////////////////////////
+extern "C"
 __global__ void RandomGPU(
     float *d_Random,
-    int NPerRng
+    int NPerRng,
+    mt_struct_stripped *ds_MT
 ){
     const int      tid = blockDim.x * blockIdx.x + threadIdx.x;
     const int THREAD_N = blockDim.x * gridDim.x;
@@ -61,6 +63,8 @@ __global__ void RandomGPU(
     int iState, iState1, iStateM, iOut;
     unsigned int mti, mti1, mtiM, x;
     unsigned int mt[MT_NN];
+    //d_Random[0] = 0.444f;
+    //return;
 
     for(int iRng = tid; iRng < MT_RNG_COUNT; iRng += THREAD_N){
         //Load bit-vector Mersenne Twister parameters
@@ -117,6 +121,7 @@ __device__ void BoxMuller(float& u1, float& u2){
     u2 = r * __sinf(phi);
 }
 
+extern "C"
 __global__ void BoxMullerGPU(float *d_Random, int NPerRng){
     const int      tid = blockDim.x * blockIdx.x + threadIdx.x;
     const int THREAD_N = blockDim.x * gridDim.x;

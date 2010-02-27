@@ -97,6 +97,7 @@ class DeepBeliefNetwork
     list<Edge>::const_iterator non_training_edges_end() const { return m_non_training_edges.end(); }
     list<Edge>::const_iterator all_edges_begin() const { return m_all_edges.begin(); }
     list<Edge>::const_iterator all_edges_end() const { return m_all_edges.end(); }
+    Vertex top_vertex() { return m_topological_order.back(); }
     DeepBeliefNetworkGraph m_graph;
 
     int neurons_size( Vertex v )

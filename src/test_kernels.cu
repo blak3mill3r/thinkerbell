@@ -12,7 +12,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 extern "C"
 __global__ void
-mmul( float* C, float* A, float* B, float* D, bool use_zero_instead_of_D, int wA, int wB)
+mmul( float* C
+    , float* A
+    , float* B
+    , float* D
+    , bool use_zero_instead_of_D
+    , int wA
+    , int wB
+    )
 {
     // Block index
     int bx = blockIdx.x;
@@ -93,11 +100,15 @@ mmul( float* C, float* A, float* B, float* D, bool use_zero_instead_of_D, int wA
 ////////////////////////////////////////////////////
 extern "C"
 __global__ void
-mmul_transpose_b( float* C, float* A, float* B, float* D, bool use_zero_instead_of_D, bool negate, int wA)
+mmul_transpose_b( float* C
+                , float* A
+                , float* B
+                , int wA
+                )
 {
     int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
-    int wB = wA;  //necessarily ... this should be checked by host code probably
+    int wB = wA;  //necessarily ... 
 
     int aBegin = wA * BLOCK_SIZE * by;
 
@@ -113,7 +124,7 @@ mmul_transpose_b( float* C, float* A, float* B, float* D, bool use_zero_instead_
 
     int c = wC * BLOCK_SIZE * by + BLOCK_SIZE * bx;
 
-    float Csub = D[c + wC * ty + tx];
+    float Csub = 0;
 
     for (int a = aBegin, b = bBegin;
              a <= aEnd;
@@ -128,12 +139,8 @@ mmul_transpose_b( float* C, float* A, float* B, float* D, bool use_zero_instead_
 
         __syncthreads();
 
-        if(negate)
-          for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub -= As[ty][k] * Bs[k][tx];
-        else
-          for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub += As[ty][k] * Bs[k][tx];
+        for (int k = 0; k < BLOCK_SIZE; ++k)
+          Csub += As[ty][k] * Bs[k][tx];
 
         __syncthreads();
     }
@@ -149,8 +156,8 @@ __device__ float sigmoid( float v )
 
 extern "C"
 __global__ void
-activate_neurons( float* energies
-                , float* activations
+activate_neurons( float* energies               // read from
+                , float* activations            // write to
                 , float* randoms
                 , int neurons_size
                 , bool binary )
@@ -167,16 +174,22 @@ activate_neurons( float* energies
     activations[i] = energy;
 }
 
-
-/*
 ////////////////////////////////////////////////////////////////////////////////
 //! Matrix multiplication on the device: C = A-transposed * B
-//! hA is A's height (also known as A-transposed's width) and wB is B's width
+//! wAt is A's height (also known as A-transposed's width) and wB is B's width
 ////////////////////////////////////////////////////////////////////////////////
 extern "C"
 __global__ void
-mmul_transpose_a( float* C, float* A, float* B, int wAt, int wB)
+mmul_transpose_a( float* C
+                , float* A
+                , float* B
+                , float* D
+                , bool negate
+                , int wAt
+                , int wB
+                )
 {
+  /*
     int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
     int wA = gridDim.y * BLOCK_SIZE;
@@ -193,7 +206,7 @@ mmul_transpose_a( float* C, float* A, float* B, int wAt, int wB)
 
     int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
 
-    float Csub = D[c + wB * ty + tx];
+    float Csub = 0;//D[c + wB * ty + tx];
 
     for (int a = aBegin, b = bBegin;
              a <= aEnd;
@@ -218,9 +231,9 @@ mmul_transpose_a( float* C, float* A, float* B, int wAt, int wB)
         __syncthreads();
     }
 
-    C[c + wB * ty + tx] = Csub;
+    //C[c + wB * ty + tx] = Csub;
+  */
 }
-*/
 
 
 #endif

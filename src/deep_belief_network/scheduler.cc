@@ -7,7 +7,6 @@ using boost::lambda::bind;
 using boost::lambda::_1;
 
 DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
-//, madd( module_test_kernels, "madd" )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
   , num_examples( num_examples_ )
@@ -16,41 +15,94 @@ DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_
 {
 }
 
+void DeepBeliefNetworkScheduler::init_rng()
+{
+  loadMTGPU("data/MersenneTwister.dat");
+  seedMTGPU(777);
+}
+
+//Load twister configurations
+void DeepBeliefNetworkScheduler::loadMTGPU(const char *fname){
+    FILE *fd = fopen(fname, "rb");
+    if(!fd){
+        printf("initMTGPU(): failed to open %s\n", fname);
+        printf("TEST FAILED\n");
+        exit(0);
+    }
+    if( !fread(h_MT, sizeof(h_MT), 1, fd) ){
+        printf("initMTGPU(): failed to load %s\n", fname);
+        printf("TEST FAILED\n");
+        exit(0);
+    }
+    fclose(fd);
+}
+
+//Initialize/seed twister for current GPU context
+void DeepBeliefNetworkScheduler::seedMTGPU(unsigned int seed){
+    int i;
+    //Need to be thread-safe
+    mt_struct_stripped *MT = (mt_struct_stripped *)std::malloc(MT_RNG_COUNT * sizeof(mt_struct_stripped));
+
+    for(i = 0; i < MT_RNG_COUNT; i++){
+        MT[i]      = h_MT[i];
+        MT[i].seed = seed;
+    }
+    //cout <<" Copy random configs to device " << endl;
+    cuda::memcpy( dmemory->random_configs_ptr(), MT, sizeof(h_MT));
+
+    free(MT);
+}
+
 void DeepBeliefNetworkScheduler::operator()()
 {
+  // cuda context is good for the scope of this object:
   Cuda context(0);
-  Module module_test_kernels("src/test_kernels.cubin");
-  Module module_rng_kernels("src/mersenne_twister_kernels.cubin");
-  Function mmul( module_test_kernels, "mmul" )
-         , mmultb( module_test_kernels, "mmul_transpose_b" )
-         , activate_neurons( module_test_kernels, "activate_neurons" )
-         //, rng( module_rng_kernels, "rng" )
-         ;
+
+  // cuda operations for the algorithm:
+  DbnOperations ops;
+
   // begin/end events for each buffer
   Event exec_begin[3];
   Event exec_end[3];
 
-  auto_ptr<DeviceMemory> weights_memory( new DeviceMemory( dmemory->weights_memory_size() ) );
-  auto_ptr<DeviceMemory> example_memory( new DeviceMemory( dmemory->example_memory_size() ) );
-  auto_ptr<DeviceMemory> temporary_memory( new DeviceMemory( dmemory->temporary_memory_size() ) );
+  // where in the randoms buffer to find "fresh" numbers
+  unsigned long random_offset = 0;
 
-  // allocate device memory for the dbn:
-  dmemory->allocate_device_memory( weights_memory->ptr(), example_memory->ptr(), temporary_memory->ptr() );
-  
-  //////////////////////////////////////
-  // get the triple buffering rolling...
-  //////////////////////////////////////
+  // allocate device memory for the algorithm
+  auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
+  auto_ptr<DeviceMemory> example_memory(        new DeviceMemory( dmemory->example_memory_size()        ) );
+  auto_ptr<DeviceMemory> temporary_memory(      new DeviceMemory( dmemory->temporary_memory_size()      ) );
+  auto_ptr<DeviceMemory> randoms_memory(        new DeviceMemory( dmemory->randoms_memory_size()        ) );
+  auto_ptr<DeviceMemory> random_configs_memory( new DeviceMemory( dmemory->random_configs_memory_size() ) );
+
+  dmemory->allocate_device_memory( weights_memory->ptr()
+                                 , example_memory->ptr()
+                                 , temporary_memory->ptr()
+                                 , randoms_memory->ptr()
+                                 , random_configs_memory->ptr()
+                                 );
+
+  // init the rng
+  init_rng();
 
   // 2 streams:
   vector<Stream *> streams;
   streams.push_back(new Stream());
   streams.push_back(new Stream());
 
+  // start with full buffer of randoms
+  ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+
+  //////////////////////////////////////
+  // get the triple buffering rolling...
+  //////////////////////////////////////
+
+  // FIXME xfer examples into buffers A, B and C
+
   // first 2 steps are different:
   // there is no batch finishing with the current buffer
   exec_end[3].record( *streams[0] );
   exec_end[0].record( *streams[1] );
-  // FIXME xfer examples into buffers A, B and C
 
   while(true)
   for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
@@ -70,24 +122,23 @@ void DeepBeliefNetworkScheduler::operator()()
     //}
 
     // synch with the end of the execution of the last one using A buffers
-    exec_end[bufa].synchronize();
+    if(!exec_end[bufa].query())
+    {
+      //Logger::log("-");
+      exec_end[bufa].synchronize();
+    }
 
     // for each vertex in topo order
     BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
     {
-      //tmp_spaces_debug();
       if(dbn->is_input_vertex(v))
       { // v's activation amounts to setting neuron energies from a training example
-        activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-        activate_neurons.go( dbn->neurons_size( v ) / BLOCK_SIZE
-                           , batch_size / BLOCK_SIZE
-                           , (*streams[streami])
-                           , dmemory->vertex_ptr(v, bufa)//FIXME the address where to find the example
-                           , dmemory->vertex_ptr(v, bufa)
-                           , dmemory->vertex_ptr(v, bufa)//FIXME where to find randoms (which wont be used) .. can I pass NULL safely?
-                           , dbn->neurons_size(v)
-                           , false
-                           );
+        ops.activate_input_vertex( dbn->neurons_size(v)
+                                 , batch_size
+                                 , (*streams[streami])
+                                 , dmemory->vertex_ptr(v, bufa) /// FIXME where to find the examples
+                                 , dmemory->vertex_ptr(v, bufa)
+                                 );
       }
       else
       { // v gets activated by each of its in-edges:
@@ -97,57 +148,139 @@ void DeepBeliefNetworkScheduler::operator()()
           Vertex sourcev = source( e, dbn->m_graph )
                , targetv = target( e, dbn->m_graph )
                ;
-          int sourcev_size = dbn->neurons_size( sourcev )
-            , targetv_size = dbn->neurons_size( targetv )
-            ;
-          mmul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-          if(first_one)
-          {
-            mmul.go( targetv_size / BLOCK_SIZE
-                   , batch_size / BLOCK_SIZE
-                   , *(streams[streami])
-                   , dmemory->vertex_ptr( targetv, bufa )
-                   , dmemory->vertex_ptr( sourcev, bufa )
-                   , dmemory->weights_ptr( e, bufa )
-                   , NULL
-                   , true
-                   , sourcev_size
-                   , targetv_size
-                   );
-            first_one = false;
-          } else {
-            mmul.go( targetv_size / BLOCK_SIZE
-                   , batch_size / BLOCK_SIZE
-                   , *(streams[streami])
-                   , dmemory->vertex_ptr( targetv, bufa )
-                   , dmemory->vertex_ptr( sourcev, bufa )
-                   , dmemory->weights_ptr( e, bufa )
-                   , dmemory->vertex_ptr( targetv, bufa )
-                   , false
-                   , sourcev_size
-                   , targetv_size
-                   );
-          }
+
+          //cout << "about to activate_edge_up to edge " << e << " for the sake of " << dbn->neurons_name(targetv) << endl;
+          ops.activate_edge_up( dbn->neurons_size( targetv )
+                              , dbn->neurons_size( sourcev )
+                              , batch_size
+                              , *(streams[streami])
+                              , dmemory->vertex_ptr( targetv, bufa )
+                              , dmemory->vertex_ptr( sourcev, bufa )
+                              , dmemory->weights_ptr( e, bufa )
+                              , first_one
+                              );
+          first_one = false;
         }
       }
+
+      // if we're in need of more randoms before we can set a's activations, generate more now
+      if(random_offset > 5860*4096-dmemory->neurons_batch_size(v)) // better idea maybe: 3 random buffers this size?
+      {
+        streams[0]->synchronize();  
+        streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+        random_offset = 0;
+      }
+
       // set v's activations based on energies
-      activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-      activate_neurons.go( dbn->neurons_size( v ) / BLOCK_SIZE
-                         , batch_size / BLOCK_SIZE
+      ops.activate_vertex( dbn->neurons_size(v)
+                         , batch_size
                          , (*streams[streami])
                          , dmemory->vertex_ptr(v, bufa)
-                         , dmemory->vertex_ptr(v, bufa)
-                         , dmemory->vertex_ptr(v, bufa)// FIXME address of randoms
-                         , dbn->neurons_size(v)
-                         , true
+                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                          );
-
     }
-    
+
     // synch with B-execution done
     // we're expecting not to wait here but better safe than sorry
-    exec_end[bufc].synchronize();
+    if(!exec_end[bufc].query())
+    {
+      //Logger::log(".");
+      exec_end[bufc].synchronize();
+    }
 
+    // for each in-edge of the top vertex, do a positive weight adjustment
+    Vertex top = dbn->top_vertex();
+    BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
+    {
+      Vertex sourcev = source( e, dbn->m_graph );
+      ops.positive_weight_adjustment( *streams[streami]
+                                    , dbn->neurons_size(top)
+                                    , dbn->neurons_size(sourcev)
+                                    , batch_size
+                                    , dmemory->weights_ptr(e, bufb)
+                                    , dmemory->weights_ptr(e, bufc)
+                                    , dmemory->vertex_ptr(sourcev, bufa)
+                                    , dmemory->vertex_ptr(top, bufa)
+                                    );
+    }
+
+    // Alternating Gibbs sampling begins here
+    // first down-activate each source vertex of the top vertex
+    BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
+    {
+      Vertex sourcev = source( e, dbn->m_graph );
+      //cout << "about to activate_edge_down for edge " << dbn->neurons_name(sourcev) << endl;
+      ops.activate_edge_down( dbn->neurons_size(top)
+                            , dbn->neurons_size(sourcev)
+                            , batch_size
+                            , *streams[streami]
+                            , dmemory->vertex_ptr(top,     bufa)
+                            , dmemory->vertex_ptr(sourcev, bufa)
+                            , dmemory->weights_ptr(e,       bufa)
+                            );
+      // if we're in need of more randoms before we can set a's activations, generate more now
+      if(random_offset > 5860*4096-dmemory->neurons_batch_size(sourcev))
+      {
+        streams[0]->synchronize();  
+        streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+        random_offset = 0;
+      }
+
+      ops.activate_vertex( dbn->neurons_size(sourcev)
+                         , batch_size
+                         , (*streams[streami])
+                         , dmemory->vertex_ptr(sourcev, bufa)
+                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(sourcev))))
+                         );
+    }
+
+    // now up-activate the top vertex from each of its in-edges
+    bool first_one = true;
+    BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
+    {
+      Vertex sourcev = source( e, dbn->m_graph );
+      ops.activate_edge_up( dbn->neurons_size( top )
+                          , dbn->neurons_size( sourcev )
+                          , batch_size
+                          , *(streams[streami])
+                          , dmemory->vertex_ptr( top, bufa )
+                          , dmemory->vertex_ptr( sourcev, bufa )
+                          , dmemory->weights_ptr( e, bufa )
+                          , first_one
+                          );
+      first_one = false;
+    }
+
+    // if we're in need of more randoms before we can set a's activations, generate more now
+    if(random_offset > 5860*4096-dmemory->neurons_batch_size(top))
+    {
+      streams[0]->synchronize();  
+      streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+      random_offset = 0;
+    }
+
+    ops.activate_vertex( dbn->neurons_size(top)
+                       , batch_size
+                       , (*streams[streami])
+                       , dmemory->vertex_ptr(top, bufa)
+                       , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(top))))
+                       );
+
+    // for each in-edge of the top vertex, do a negative weight adjustment
+    BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
+    {
+      Vertex sourcev = source( e, dbn->m_graph );
+      ops.negative_weight_adjustment( *streams[streami]
+                                    , dbn->neurons_size(top)
+                                    , dbn->neurons_size(sourcev)
+                                    , batch_size
+                                    , dmemory->weights_ptr(e, bufc)
+                                    , dmemory->vertex_ptr(sourcev, bufa)
+                                    , dmemory->vertex_ptr(top, bufa)
+                                    );
+    }
+
+    
     exec_end[bufa].record( *(streams[streami]) );
 
     if( time_to_stop )
@@ -177,19 +310,21 @@ DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkS
   , batch_size( batch_size_ )
   , num_examples( num_examples_ )
   , temporary_memory_minimum_size(0)
-{
-  cout << "Constructozoid!" << endl;
-}
+{ }
 
 void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
                                                           , DevicePtr example_memory_ptr_
                                                           , DevicePtr temporary_memory_ptr_
+                                                          , DevicePtr randoms_memory_ptr_
+                                                          , DevicePtr random_configs_memory_ptr_
                                                           )
 {
 
   weights_memory_ptr = weights_memory_ptr_;
   example_memory_ptr = example_memory_ptr_;
   temporary_memory_ptr = temporary_memory_ptr_; 
+  randoms_ptr_ = randoms_memory_ptr_; 
+  random_configs_ptr_ = random_configs_memory_ptr_; 
 
   map_temporary_ptrs();
 
@@ -201,6 +336,12 @@ void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_me
           , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
           );
 }
+
+int DeepBeliefNetworkMemoryMapper::randoms_memory_size()
+  { return (5860*4096*sizeof(float)); }
+
+int DeepBeliefNetworkMemoryMapper::random_configs_memory_size()
+  { return (MT_RNG_COUNT * sizeof(mt_struct_stripped)); }
 
 int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 {
@@ -297,7 +438,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
 
   for_each( weights_memory_layout_map.begin()
           , weights_memory_layout_map.end()
-          , (var(total_size) =
+          , (var(total_size) = var(total_size) +
                ret< int >(
                  lambda::bind( &pair< int, bool >::first
                                     , ret< pair< int,bool > >(
@@ -308,7 +449,7 @@ int DeepBeliefNetworkMemoryMapper::weights_memory_size()
                          )
             )
           );
-  cout << "weights memory size = " << total_size << " floats " << endl;
+  //cout << "weights memory size = " << total_size << " floats " << endl;
   return (sizeof(float) * total_size);
 }
 

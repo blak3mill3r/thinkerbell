@@ -4,6 +4,7 @@
 #include <vector>
 #include <list>
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include "deep_belief_network.h"
 #include <boost/thread/condition.hpp>
@@ -15,6 +16,7 @@
 #include <boost/foreach.hpp>
 #include <cudamm/cuda.hpp>
 #include "tmp.h"
+#include "mersenne_twister.h"
 #define WITH_LOGGING
 #include "logger.h"
 
@@ -26,6 +28,193 @@ using namespace boost::lambda;
 using boost::lambda::_1;
 using boost::lambda::bind;
 
+class DbnOperations : noncopyable
+{
+public:
+  DbnOperations()
+    : module_test_kernels("src/test_kernels.cubin")
+    , module_rng_kernels("src/mersenne_twister_kernels.cubin")
+    , mmul( module_test_kernels,             "mmul" )
+    , mmultb( module_test_kernels,           "mmul_transpose_b" )
+    , mmulta( module_test_kernels,           "mmul_transpose_a" )
+    , activate_neurons( module_test_kernels, "activate_neurons" )
+    , random( module_rng_kernels,            "RandomGPU" )
+    , box_muller( module_rng_kernels,        "BoxMullerGPU" )
+  {}
+
+  void generate_randoms( const Stream &stream
+                       , DevicePtr randoms
+                       , DevicePtr random_configs
+                       , unsigned int seed = 777
+                       )
+                       {
+                         random.setBlockShape(128, 1, 1);
+                         random.go( 32
+                                  , 1
+                                  , stream
+                                  , randoms
+                                  , 5860 
+                                  , random_configs
+                                  );
+                         box_muller.setBlockShape(128, 1, 1);
+                         box_muller.go( 32
+                                      , 1
+                                      , stream
+                                      , randoms
+                                      , 5860 
+                                      );
+                       }
+
+  void activate_input_vertex( int neurons_size
+                            , int batch_size
+                            , const Stream &stream
+                            , DevicePtr example
+                            , DevicePtr neurons
+                            )
+                            {
+                              activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                              activate_neurons.go( neurons_size / BLOCK_SIZE
+                                                 , batch_size / BLOCK_SIZE
+                                                 , stream
+                                                 , example          // copy from example
+                                                 , neurons          // write to neurons
+                                                 , example          // ignored ... it's illegal to pass bad pointers to kernels, so we are passing example
+                                                 , neurons_size
+                                                 , false            // not a binary activation, i.e. the values written will be the sigmoid(energies)
+                                                 );
+                            
+                            }
+
+  void activate_vertex( int neurons_size
+                      , int batch_size
+                      , const Stream &stream
+                      , DevicePtr neurons
+                      , DevicePtr randoms
+                      )
+                      {
+                        activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                        activate_neurons.go( neurons_size / BLOCK_SIZE
+                                           , batch_size / BLOCK_SIZE
+                                           , stream
+                                           , neurons          // read from neurons
+                                           , neurons          // write to neurons
+                                           , randoms
+                                           , neurons_size
+                                           , true            // a binary activation, i.e. the values written will be 0 or 1
+                                           );
+                      
+                      }
+
+  void activate_edge_up( int target_neurons_size
+                       , int source_neurons_size
+                       , int batch_size
+                       , const Stream &stream
+                       , DevicePtr target_neurons
+                       , DevicePtr source_neurons
+                       , DevicePtr weights
+                       , bool first_one
+                       )
+                       {
+                         mmul.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                         mmul.go( target_neurons_size / BLOCK_SIZE
+                                , batch_size / BLOCK_SIZE
+                                , stream
+                                , target_neurons
+                                , source_neurons
+                                , weights
+                                , target_neurons     // ignored if first_one
+                                , first_one
+                                , source_neurons_size
+                                , target_neurons_size
+                                );
+                       }
+
+  void activate_edge_down( int target_neurons_size
+                         , int source_neurons_size
+                         , int batch_size
+                         , const Stream &stream
+                         , DevicePtr target_neurons
+                         , DevicePtr source_neurons
+                         , DevicePtr weights
+                         )
+                         {
+                           //cout << "activate_edge_down( " << target_neurons_size << ", " << source_neurons_size << ", " << batch_size << endl;
+                           mmultb.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                           mmultb.go( source_neurons_size / BLOCK_SIZE
+                                    , batch_size / BLOCK_SIZE
+                                    , stream
+                                    , source_neurons
+                                    , target_neurons
+                                    , weights
+                                    , target_neurons_size
+                                    );
+                         }
+
+  void positive_weight_adjustment( const Stream &stream
+                                 , int target_neurons_size
+                                 , int source_neurons_size
+                                 , int batch_size
+                                 , DevicePtr weights_current
+                                 , DevicePtr weights_to_modify
+                                 , DevicePtr source_neurons
+                                 , DevicePtr target_neurons
+                                 )
+                                 {
+                                  //cout << "about to positive_weight_adjustment: " << target_neurons_size << ", " << source_neurons_size << ", " << batch_size << endl;
+                                   mmulta.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                                   mmulta.go( target_neurons_size / BLOCK_SIZE
+                                            , source_neurons_size / BLOCK_SIZE
+                                            , stream
+                                            , weights_to_modify
+                                            , source_neurons
+                                            , target_neurons
+                                            , weights_current
+                                            , false
+                                            , batch_size
+                                            , target_neurons_size
+                                            );
+                                 }
+
+  void negative_weight_adjustment( const Stream &stream
+                                 , int target_neurons_size
+                                 , int source_neurons_size
+                                 , int batch_size
+                                 , DevicePtr weights_to_modify
+                                 , DevicePtr source_neurons
+                                 , DevicePtr target_neurons
+                                 )
+                                 {
+                                   mmulta.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                                   mmulta.go( target_neurons_size / BLOCK_SIZE
+                                            , source_neurons_size / BLOCK_SIZE
+                                            , stream
+                                            , weights_to_modify
+                                            , source_neurons
+                                            , target_neurons
+                                            , weights_to_modify
+                                            , true
+                                            , batch_size
+                                            , target_neurons_size
+                                            );
+                                 }
+
+
+private:
+
+  Module module_test_kernels;
+  Module module_rng_kernels;
+
+  Function mmul
+         , mmultb
+         , mmulta
+         , activate_neurons
+         , random
+         , box_muller
+         ;
+
+ 
+};
+
 // Manages cuda device memory for the DBN training process
 // just enough triple-buffered-temp space for the largest operand
 // 3 buffers for examples
@@ -33,7 +222,6 @@ using boost::lambda::bind;
 //   3temp: neuron space for temporary neuron values
 // for training edges
 //   3 buffers for weights
-//   3temp: weight space for adjustments
 // for all other edges
 //   1 buffer for weights
 // just enough space is allocated for temporaries to
@@ -50,7 +238,7 @@ class DeepBeliefNetworkMemoryMapper : noncopyable
 {
 public:
   DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_, DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
-  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr);
+  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr);
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
@@ -61,6 +249,11 @@ public:
   DevicePtr vertex_ptr( Vertex v, int buffer_index )
     { return (temporary_vertex_memory_ptr[v][buffer_index]); }
 
+  DevicePtr randoms_ptr()
+    { return randoms_ptr_; }
+
+  DevicePtr random_configs_ptr()
+    { return random_configs_ptr_; }
 
   inline void activate_edge( Edge e, bool add_to_result )
   {
@@ -161,7 +354,7 @@ private:
     else
     {
       pair<int,int> temp = *foundi;
-      cout << "Found a suitable free space, using that: " << temp.first<< " through " << temp.second << endl;
+      //cout << "Found a suitable free space, using that: " << temp.first<< " through " << temp.second << endl;
       temporary_memory_free.erase(foundi);
       int leftover = (temp.second - temp.first) - size;
       if(leftover > 0)
@@ -226,16 +419,20 @@ private:
   DevicePtr             temporary_memory_ptr
           ,             example_memory_ptr
           ,             weights_memory_ptr
+          ,             randoms_ptr_
+          ,             random_configs_ptr_
           ;
 public:
   int temporary_memory_size();
   int example_memory_size();
   int weights_memory_size();
+  int randoms_memory_size();
+  int random_configs_memory_size();
+  int neurons_batch_size( Vertex v );
 private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
   int weight_matrix_size( Edge e );
-  int neurons_batch_size( Vertex v );
 
 protected:
   DeepBeliefNetwork * dbn;
@@ -265,13 +462,17 @@ private:
   volatile bool time_to_stop;
 
   inline void choose_random_example() {}
+  void loadMTGPU(const char*);
+  void seedMTGPU(unsigned int);
 
+  mt_struct_stripped h_MT[MT_RNG_COUNT];
 
 public:
   explicit
   DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
 
   void stop() { time_to_stop = true; }
+  void init_rng();
 
   void operator()();
 
