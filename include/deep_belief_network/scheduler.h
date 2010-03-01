@@ -34,12 +34,12 @@ public:
   DbnOperations()
     : module_test_kernels("src/test_kernels.cubin")
     , module_rng_kernels("src/mersenne_twister_kernels.cubin")
-    , mmul( module_test_kernels,             "mmul" )
-    , mmultb( module_test_kernels,           "mmul_transpose_b" )
-    , mmulta( module_test_kernels,           "mmul_transpose_a" )
-    , activate_neurons( module_test_kernels, "activate_neurons" )
-    , random( module_rng_kernels,            "RandomGPU" )
-    , box_muller( module_rng_kernels,        "BoxMullerGPU" )
+    , mmul( module_test_kernels,              "mmul" )
+    , mmultb( module_test_kernels,            "mmul_transpose_b" )
+    , weight_adjustment( module_test_kernels, "weight_adjustment" )
+    , activate_neurons( module_test_kernels,  "activate_neurons" )
+    , random( module_rng_kernels,             "RandomGPU" )
+    , box_muller( module_rng_kernels,         "BoxMullerGPU" )
   {}
 
   void generate_randoms( const Stream &stream
@@ -100,7 +100,7 @@ public:
                                            , neurons          // write to neurons
                                            , randoms
                                            , neurons_size
-                                           , true            // a binary activation, i.e. the values written will be 0 or 1
+                                           , true// a binary activation, i.e. the values written will be 0 or 1
                                            );
                       
                       }
@@ -158,21 +158,22 @@ public:
                                  , DevicePtr weights_to_modify
                                  , DevicePtr source_neurons
                                  , DevicePtr target_neurons
+                                 , float learning_rate
                                  )
                                  {
-                                  //cout << "about to positive_weight_adjustment: " << target_neurons_size << ", " << source_neurons_size << ", " << batch_size << endl;
-                                   mmulta.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-                                   mmulta.go( target_neurons_size / BLOCK_SIZE
-                                            , source_neurons_size / BLOCK_SIZE
-                                            , stream
-                                            , weights_to_modify
-                                            , source_neurons
-                                            , target_neurons
-                                            , weights_current
-                                            , false
-                                            , batch_size
-                                            , target_neurons_size
-                                            );
+                                   //cout << "about to positive_weight_adjustment: " << target_neurons_size << ", " << source_neurons_size << ", " << batch_size << endl;
+                                   weight_adjustment.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                                   weight_adjustment.go( target_neurons_size / BLOCK_SIZE
+                                                       , source_neurons_size / BLOCK_SIZE
+                                                       , stream
+                                                       , weights_to_modify
+                                                       , source_neurons
+                                                       , target_neurons
+                                                       , weights_current
+                                                       , learning_rate
+                                                       , source_neurons_size
+                                                       , false
+                                                       );
                                  }
 
   void negative_weight_adjustment( const Stream &stream
@@ -182,21 +183,43 @@ public:
                                  , DevicePtr weights_to_modify
                                  , DevicePtr source_neurons
                                  , DevicePtr target_neurons
+                                 , float learning_rate
                                  )
                                  {
-                                   mmulta.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-                                   mmulta.go( target_neurons_size / BLOCK_SIZE
-                                            , source_neurons_size / BLOCK_SIZE
-                                            , stream
-                                            , weights_to_modify
-                                            , source_neurons
-                                            , target_neurons
-                                            , weights_to_modify
-                                            , true
-                                            , batch_size
-                                            , target_neurons_size
-                                            );
+                                   weight_adjustment.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                                   weight_adjustment.go( target_neurons_size / BLOCK_SIZE
+                                                       , source_neurons_size / BLOCK_SIZE
+                                                       , stream
+                                                       , weights_to_modify
+                                                       , source_neurons
+                                                       , target_neurons
+                                                       , weights_to_modify
+                                                       , learning_rate
+                                                       , source_neurons_size
+                                                       , true
+                                                       );
                                  }
+
+  void debuggify( const Stream &stream
+                , DevicePtr neurons_ptr
+                , int neurons_size
+                , int neurons_batch_size
+                )
+                {
+                  cout << "wth: " << neurons_size << ", " << neurons_batch_size << endl;
+                  cout << "pointer: " << neurons_ptr.pingpang() << endl;
+                  float *tempneurons = (float*)std::malloc(sizeof(float) * neurons_batch_size);
+                  // copy back from device
+                  cuda::memcpy( tempneurons
+                              , neurons_ptr // vertex_ptr(v, buffer_index)
+                              , sizeof(float) * neurons_batch_size
+                              //, stream
+                              );
+                  stream.synchronize();
+                  for(int ni=0; ni<neurons_size; ++ni)
+                    cout << "Neuron " << ni << " = " << tempneurons[ni] << endl;
+                  delete tempneurons;
+                }
 
 
 private:
@@ -206,7 +229,7 @@ private:
 
   Function mmul
          , mmultb
-         , mmulta
+         , weight_adjustment
          , activate_neurons
          , random
          , box_muller
@@ -243,7 +266,7 @@ public:
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
 
-  DevicePtr examples_ptr( int buffer_index )
+  DevicePtr example_ptr( int buffer_index ) // FIXME - need per-vertex
     { return (example_memory_ptr + (sizeof(float) * buffer_index * example_buffer_size)); }
 
   DevicePtr vertex_ptr( Vertex v, int buffer_index )
@@ -254,6 +277,22 @@ public:
 
   DevicePtr random_configs_ptr()
     { return random_configs_ptr_; }
+
+  void upload_weights( Edge e, int buffer_index )
+  {
+    cuda::memcpy( weights_ptr(e, buffer_index)
+                , dbn->m_graph[e].rbm->m_W.weights()
+                , sizeof(float) * weight_matrix_size(e)
+                );
+  }
+
+  void download_weights( Edge e, int buffer_index )
+  {
+    cuda::memcpy( dbn->m_graph[e].rbm->m_W.weights()
+                , weights_ptr(e, buffer_index)
+                , sizeof(float) * weight_matrix_size(e)
+                );
+  }
 
   inline void activate_edge( Edge e, bool add_to_result )
   {
@@ -403,7 +442,6 @@ private:
     {
       pair<int,int> zzz = *foundi;
       //cout << "Freeing temporary memory range: " << zzz.first  << " to " << zzz.second << endl;
-      // FIXME sanity check...
       temporary_memory_allocated.erase(foundi);
       temporary_memory_free.push_back( zzz );
     }
@@ -461,7 +499,8 @@ private:
   auto_ptr<DeepBeliefNetworkMemoryMapper> dmemory;
   volatile bool time_to_stop;
 
-  inline void choose_random_example() {}
+  inline int choose_random_example() { return (rand() % num_examples); }
+  void activate_from_example( Vertex v, int example_index );
   void loadMTGPU(const char*);
   void seedMTGPU(unsigned int);
 

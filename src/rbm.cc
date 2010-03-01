@@ -7,8 +7,6 @@
 #include <iostream>
 #include "rbm.h"
 
-#define THREADS_PER_BLOCK 16
-
 namespace thinkerbell {
 
 Rbm::Rbm(Neurons *a, Neurons *b)
@@ -22,8 +20,8 @@ Rbm::~Rbm()
 
 void Rbm::randomize_weights()
 {
-  float scale = 0.01;
-  float bias = -scale;
+  float scale = 10.0;
+  float bias = -scale*0.1;
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
     weights[wi] = ( ( rand() / (float)RAND_MAX ) * scale ) + bias ;

@@ -16,7 +16,7 @@ mmul( float* C
     , float* A
     , float* B
     , float* D
-    , bool use_zero_instead_of_D
+    , int use_zero_instead_of_D
     , int wA
     , int wB
     )
@@ -160,7 +160,7 @@ activate_neurons( float* energies               // read from
                 , float* activations            // write to
                 , float* randoms
                 , int neurons_size
-                , bool binary )
+                , int binary )
 {
   int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
   int x = BLOCK_SIZE*bx + tx;
@@ -174,6 +174,72 @@ activate_neurons( float* energies               // read from
     activations[i] = energy;
 }
 
+////////////////////////////////////////////////////
+// Matrix multiplication which transposes B operand
+// C = D +/- (A*B)
+// wA is A's width
+////////////////////////////////////////////////////
+extern "C"
+__global__ void
+weight_adjustment( float* C
+                 , float* A
+                 , float* B
+                 , float* D
+                 , float learning_rate
+                 , int wA
+                 , int negate
+                 )
+{
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+
+    int wB = wA;  //necessarily ... 
+
+    int aBegin = wA * BLOCK_SIZE * by;
+
+    int aEnd   = aBegin + wA - 1;
+
+    int aStep  = BLOCK_SIZE;
+
+    int bBegin = wB * BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE;
+
+    int wC = gridDim.x * BLOCK_SIZE;
+
+    int c = wC * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    float Csub = D[c + wC * ty + tx];
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[ty][tx] = A[a + wA * ty + tx];
+        Bs[tx][ty] = B[b + wB * ty + tx]; // note transposed B
+
+        __syncthreads();
+
+
+        if(negate)
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
+        else
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
+
+        __syncthreads();
+    }
+
+    C[c + wC * ty + tx] = Csub;
+}
+
+/*
+this is not needed I think
+
 ////////////////////////////////////////////////////////////////////////////////
 //! Matrix multiplication on the device: C = A-transposed * B
 //! wAt is A's height (also known as A-transposed's width) and wB is B's width
@@ -184,12 +250,12 @@ mmul_transpose_a( float* C
                 , float* A
                 , float* B
                 , float* D
-                , bool negate
+                , int negate
                 , int wAt
                 , int wB
+                , float learning_rate
                 )
 {
-  /*
     int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
     int wA = gridDim.y * BLOCK_SIZE;
@@ -206,7 +272,7 @@ mmul_transpose_a( float* C
 
     int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
 
-    float Csub = 0;//D[c + wB * ty + tx];
+    float Csub = 0;
 
     for (int a = aBegin, b = bBegin;
              a <= aEnd;
@@ -223,17 +289,17 @@ mmul_transpose_a( float* C
 
         if(negate)
           for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub -= As[ty][k] * Bs[k][tx];
+            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
         else
           for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub += As[ty][k] * Bs[k][tx];
+            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
 
         __syncthreads();
     }
 
-    //C[c + wB * ty + tx] = Csub;
-  */
+    C[c + wB * ty + tx] = Csub;
 }
+*/
 
 
 #endif

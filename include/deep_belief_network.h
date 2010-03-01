@@ -15,8 +15,6 @@
 #include <boost/graph/adj_list_serialize.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/lambda/bind.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/serialization/scoped_ptr.hpp>
 #include <boost/foreach.hpp>
 
 #include "types.h"

@@ -55,6 +55,10 @@ void DeepBeliefNetworkScheduler::seedMTGPU(unsigned int seed){
 
 void DeepBeliefNetworkScheduler::operator()()
 {
+  float reality[0x1000];
+  for(int zz=0; zz<0x1000; ++zz)
+    reality[zz] = sinf( float(zz)*(720.0/0x1000) * M_PI / 180.0 ) * 0.5 + 0.5;
+
   // cuda context is good for the scope of this object:
   Cuda context(0);
 
@@ -67,6 +71,9 @@ void DeepBeliefNetworkScheduler::operator()()
 
   // where in the randoms buffer to find "fresh" numbers
   unsigned long random_offset = 0;
+
+  // weight adjustments are scaled by this factor
+  float learning_rate = 0.01;
 
   // allocate device memory for the algorithm
   auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
@@ -82,6 +89,14 @@ void DeepBeliefNetworkScheduler::operator()()
                                  , random_configs_memory->ptr()
                                  );
 
+  // transfer weights to device, all 3 buffers
+  BOOST_FOREACH( Edge e, make_pair(dbn->all_edges_begin(),dbn->all_edges_end()))
+  {
+    dmemory->upload_weights( e, 0 );
+    dmemory->upload_weights( e, 1 );
+    dmemory->upload_weights( e, 2 );
+  }
+
   // init the rng
   init_rng();
 
@@ -93,32 +108,44 @@ void DeepBeliefNetworkScheduler::operator()()
   // start with full buffer of randoms
   ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
 
+  // transfer examples into buffers A, B and C
+  BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
+  {
+    cuda::memcpy( dmemory->example_ptr(0), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
+    cuda::memcpy( dmemory->example_ptr(1), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
+    cuda::memcpy( dmemory->example_ptr(2), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
+  }
+
   //////////////////////////////////////
   // get the triple buffering rolling...
   //////////////////////////////////////
 
-  // FIXME xfer examples into buffers A, B and C
-
   // first 2 steps are different:
   // there is no batch finishing with the current buffer
-  exec_end[3].record( *streams[0] );
-  exec_end[0].record( *streams[1] );
+  //exec_end[3].record( *streams[0] );
+  //exec_end[0].record( *streams[1] );
 
+  int zzz = 0;
   while(true)
   for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
   {
     // this gives us three phases
-    int bufa = ((i+0)%3); // bufa weights will be written to because it will be bufc next iteration and will be used for activation steps
+    int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
     int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
-    int bufc = ((i+2)%3); // bufc weight buffers will be used for activation steps
+    int bufc = ((i+2)%3); // bufc weights will be written to because it will be bufc next iteration and will be used for activation steps
+// next round
+// c -> a
+// a -> b
+// b -> c
     int streami = i%2;
 
-    choose_random_example();
+    int training_example = choose_random_example();
 
-    // FIXME sometimes transfer examples into A buffer
+    // transfer examples into A buffer if necessary
     //BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
     //{
-    //  activate_from_example(inputv);
+    //  //activate_from_example(inputv, training_example);
+
     //}
 
     // synch with the end of the execution of the last one using A buffers
@@ -133,10 +160,11 @@ void DeepBeliefNetworkScheduler::operator()()
     {
       if(dbn->is_input_vertex(v))
       { // v's activation amounts to setting neuron energies from a training example
+        //cout << "activating vertex from sample: " << training_example << endl;
         ops.activate_input_vertex( dbn->neurons_size(v)
                                  , batch_size
                                  , (*streams[streami])
-                                 , dmemory->vertex_ptr(v, bufa) /// FIXME where to find the examples
+                                 , dmemory->example_ptr(bufa) + (sizeof(float) * training_example * dbn->neurons_size(v)) // FIXME needs per-vertex (this only supports one input neuron)
                                  , dmemory->vertex_ptr(v, bufa)
                                  );
       }
@@ -161,23 +189,31 @@ void DeepBeliefNetworkScheduler::operator()()
                               );
           first_one = false;
         }
-      }
 
-      // if we're in need of more randoms before we can set a's activations, generate more now
-      if(random_offset > 5860*4096-dmemory->neurons_batch_size(v)) // better idea maybe: 3 random buffers this size?
-      {
-        streams[0]->synchronize();  
-        streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
-        random_offset = 0;
+        // if we're in need of more randoms before we can set a's activations, generate more now
+        if(random_offset > 5860*4096-dmemory->neurons_batch_size(v)) // better idea maybe: 3 random buffers this size?
+        {
+          streams[0]->synchronize();  
+          streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+          random_offset = 0;
+        }
+  
+        // set v's activations based on energies
+        ops.activate_vertex( dbn->neurons_size(v)
+                           , batch_size
+                           , (*streams[streami])
+                           , dmemory->vertex_ptr(v, bufa)
+                           , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
+                           );
+  
+        //cout << "Debuggify vertex " << dbn->neurons_name(v) << endl;
+        //ops.debuggify( *streams[streami]
+        //             , dmemory->vertex_ptr(v, bufa)
+        //             , dbn->neurons_size(v)
+        //             , dmemory->neurons_batch_size(v) 
+        //             );
+  
       }
-
-      // set v's activations based on energies
-      ops.activate_vertex( dbn->neurons_size(v)
-                         , batch_size
-                         , (*streams[streami])
-                         , dmemory->vertex_ptr(v, bufa)
-                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
-                         );
     }
 
     // synch with B-execution done
@@ -193,6 +229,31 @@ void DeepBeliefNetworkScheduler::operator()()
     BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
     {
       Vertex sourcev = source( e, dbn->m_graph );
+      //cout << "Positive weight adjustment from " << dbn->neurons_name(sourcev) << " up to " << dbn->neurons_name(top) << "\n";
+      //cout << "\t" << streami
+      //     << "\t" << dbn->neurons_size(top)
+      //     << "\t" << dbn->neurons_size(sourcev)
+      //     << "\t" << batch_size
+      //     << "\t" << dmemory->weights_ptr(e, bufb).pingpang()
+      //     << "\t" << dmemory->weights_ptr(e, bufc).pingpang()
+      //     << "\t" << dmemory->vertex_ptr(sourcev, bufa).pingpang()
+      //     << "\t" << dmemory->vertex_ptr(top, bufa).pingpang()
+      //     << endl;
+
+      //cout << "Debuggify vertex " << dbn->neurons_name(sourcev) << endl;
+      //ops.debuggify( *streams[streami]
+      //             , dmemory->vertex_ptr(sourcev, bufa)
+      //             , dbn->neurons_size(sourcev)
+      //             , dmemory->neurons_batch_size(sourcev) 
+      //             );
+
+      //cout << "Debuggify vertex " << dbn->neurons_name(top) << endl;
+      //ops.debuggify( *streams[streami]
+      //             , dmemory->vertex_ptr(top, bufa)
+      //             , dbn->neurons_size(top)
+      //             , dmemory->neurons_batch_size(top) 
+      //             );
+
       ops.positive_weight_adjustment( *streams[streami]
                                     , dbn->neurons_size(top)
                                     , dbn->neurons_size(sourcev)
@@ -201,6 +262,7 @@ void DeepBeliefNetworkScheduler::operator()()
                                     , dmemory->weights_ptr(e, bufc)
                                     , dmemory->vertex_ptr(sourcev, bufa)
                                     , dmemory->vertex_ptr(top, bufa)
+                                    , learning_rate
                                     );
     }
 
@@ -277,12 +339,14 @@ void DeepBeliefNetworkScheduler::operator()()
                                     , dmemory->weights_ptr(e, bufc)
                                     , dmemory->vertex_ptr(sourcev, bufa)
                                     , dmemory->vertex_ptr(top, bufa)
+                                    , learning_rate
                                     );
     }
 
     
     exec_end[bufa].record( *(streams[streami]) );
 
+    zzz = i;
     if( time_to_stop )
       goto alldone;
   }
@@ -291,15 +355,19 @@ void DeepBeliefNetworkScheduler::operator()()
   Logger::log("wait for streams to finish");
   streams[0]->synchronize();
   streams[1]->synchronize();
-  Logger::log("cleanup");
+
+  BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
+  {
+    dmemory->download_weights( e, (zzz+2)%3 );
+  }
+
   delete streams[1];
   delete streams[0];
-  Logger::log("done!");
+  Logger::log("exiting");
   
 }
 
 
-// FIXME todo for the mapper: weight_delta_memory should be zeroed before starting
 DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_
                                                             , DeepBeliefNetwork * dbn_
                                                             , int batch_size_
@@ -331,10 +399,15 @@ void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_me
   DevicePtr currentp = weights_memory_ptr;
 
   // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
-  for_each( weights_memory_layout_map.begin()
-          , weights_memory_layout_map.end()
-          , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
-          );
+  pair<Edge, pair<int,bool> > jj;
+  BOOST_FOREACH( jj, make_pair(weights_memory_layout_map.begin(), weights_memory_layout_map.end()) )
+  {
+    currentp = map_weights_ptrs( jj, currentp );
+  }
+  //for_each( weights_memory_layout_map.begin()
+  //        , weights_memory_layout_map.end()
+  //        , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
+  //        );
 }
 
 int DeepBeliefNetworkMemoryMapper::randoms_memory_size()
@@ -364,13 +437,15 @@ int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 }
 
 
-// FIXME only accomodates one input vertex
 int DeepBeliefNetworkMemoryMapper::example_memory_size()
 {
-  Vertex inputv = *dbn->topological_order_begin();
-  int example_size = dbn->neurons_size(inputv);
-  example_buffer_size = num_examples * example_size;
-  return (example_buffer_size * 3);
+  int total_example_size = 0;
+  BOOST_FOREACH( Vertex v, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
+  {
+    total_example_size += dbn->neurons_size(v);
+  }
+  example_buffer_size = total_example_size * num_examples;
+  return (sizeof(float) * example_buffer_size * 3);
 }
 
 DevicePtr DeepBeliefNetworkMemoryMapper::map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p )
