@@ -1,84 +1,19 @@
 todo
-  * activation buffer for each vertex in current training phase (one is the original examples)
-  * weight buffer for each edge in current training phase
-  * weight scratch buffer for the last edge in current training phase
-  trickiness: need separate temp memory space for each branch of tree
-
-  create a map while doing this map<Vertex,int> vertex one down from a fork
-  * starting from the one and only vertex with 0 out edges as required by the training algorithm
-    * z=max(z, space required for neuron temporary values for this vertex
-    * if forkinttheroad
-      * z=max(z, sum of the size requirements of the n downstream paths
-    * else
-      * go down one
-      * if nowhere to go, store size req in map at the vertex directly under the last fork or the top
-
-  now the map contains sizes for the things which will have to coexist in temporary memory
-
-  need an abstraction of "step" so device pointers into temp memory can be assigned to them
-
-  create a map that contains ptrs into temporary memory for each step
-  * starting from the only vertex with 0 out edges
-    * if forkintheroad
-      * make pointers to separate space for each vertex with sizes from the map above^ 
-    * else the memory space is all ours at this point
-
-
-maybe more better than that, along the lines of
-step through the training process in a prep phase first
-and "dynamically" allocating temp memory for whatever is needed
-therefore discarding the idea of 2 buffers for each of 3 phases
-there's just a single space * 3 phases
-just big enough for whatever needs to fit in at the same time
-
-this actually seems to simplify it
-
-step through the edges in topo order of their targets
-  if I'm the only edge activating my target
-    use the kernel that reads and adds to result's values rather than overwriting
-  activate the target...
-
-dynamic mem allocator
-  pseudo-dynamic, it is merely prepping pointers into temp memory and ensuring space requirements
-  so you can allocate an operand with it
-  which is attached to a Vertex and is a batch of neuron activations/energies
-
-DeepBeliefNetworkScheduler could be templatized on a class which does the algorithm steps
-one actually runs the algorithm, launching kernels etc
-one allocates temporary memory
-
-that class has to have inline functions for allocating/freeing memory
-which are stubs in the kernel launching impl
-and call the memory allocator in the other one
-
-so the memory allocator DbnDynamicMemoryAllocator
-malloc( Edge e, int bufferi )
-mfree( Edge e, int bufferi )
-
-even better than that would be automatically allocating and freeing
-need to know when is the last time a Vertex's neuron values are used
-after that they can be freed
-
-
-step through training process
-
+  biases
+    allocate temp memory for them very much like weights, 3 for training-vertices
+    allocate "permanent" memory for them much like weights, 1 space for non-training-vertices
+    place in the host class Neurons for them
+    kernels to adjust them
+    put them in the algorithm in DBNScheduler
+    
+    
 
 
 little things
-move all the DeepBeliefNetwork* classes into a namespace deep_belief_network
-
-
-
-
-
-
-
-
-
-
-
-
-
+name changes
+  vertex_ptr -> neurons_ptr
+  DeepBeliefNetwork* -> DBN*
+move all the DBN* classes into a namespace deep_belief_network
 
 
 
@@ -122,8 +57,4 @@ positive weight adjust step, weights-A = weights-C + delta
 2 ags steps
 negative weight adjust step, weights-A = weights-A - delta
 record B-exec-finished
-
-name change
-vertex_ptr -> neurons_ptr
-
 
