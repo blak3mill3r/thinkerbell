@@ -17,16 +17,17 @@
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
 #define B_SIZE 1024
-#define C_SIZE 1024
-#define D_SIZE 1024
+#define C_SIZE 2048
+#define D_SIZE 4096
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define BATCH_SIZE 16
-#define NUM_BATCHES 1
+#define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
 
 #define BOOST_TEST_MODULE thinkerbell_test_suite
 
-#define TRAIN_IMAGES_FILENAME "/home/blake/w/thinkerbell/data/train-images-idx3-ubyte"
+#define TRAIN_IMAGES_FILENAME "./data/train-images-idx3-ubyte"
+#define TRAIN_LABELS_FILENAME "./data/train-labels-idx1-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
@@ -59,7 +60,8 @@ BOOST_AUTO_TEST_CASE( foo )
   */
  
   DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
-  // read examples from files into trainer
+  // read examples from MNIST training set
+  // convert to floats
   float * digit_images = trainer.get_example_buffer("digit image");
   {
     ifstream infile;
@@ -93,7 +95,7 @@ BOOST_AUTO_TEST_CASE( foo )
     free(digit_images_uchar);
   }
   
-  DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES );
+  DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
 
   Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );

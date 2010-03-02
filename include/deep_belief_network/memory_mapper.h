@@ -20,7 +20,7 @@ class DBNMemoryMapper : noncopyable
 {
 public:
   DBNMemoryMapper( DBNScheduler * dbn_scheduler_, DBN * dbn_, int batch_size_, int num_example_batches_ );
-  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr);
+  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr);
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
@@ -37,9 +37,8 @@ public:
   DevicePtr random_configs_ptr()
     { return random_configs_ptr_; }
 
-  // FIXME
-  //DevicePtr biases_ptr( Vertex v, int buffer_index )
-  //  { return (biases_memory_ptr_map[v][buffer_index]); }
+  DevicePtr biases_ptr( Vertex v, int buffer_index )
+    { return (biases_ptr_map[v][buffer_index]); }
 
   void upload_weights( Edge e, int buffer_index )
   {
@@ -54,6 +53,22 @@ public:
     cuda::memcpy( dbn->m_graph[e].rbm->m_W.weights()
                 , weights_ptr(e, buffer_index)
                 , sizeof(float) * weight_matrix_size(e)
+                );
+  }
+
+  void upload_biases( Vertex v, int buffer_index )
+  {
+    cuda::memcpy( biases_ptr(v, buffer_index)
+                , dbn->m_graph[v].neurons->biases
+                , sizeof(float) * dbn->neurons_size(v)
+                );
+  }
+
+  void download_biases( Vertex v, int buffer_index )
+  {
+    cuda::memcpy( dbn->m_graph[v].neurons->biases
+                , biases_ptr(v, buffer_index)
+                , sizeof(float) * dbn->neurons_size(v)
                 );
   }
 
@@ -219,6 +234,7 @@ private:
   DevicePtr             temporary_memory_ptr
           ,             example_memory_ptr
           ,             weights_memory_ptr
+          ,             biases_memory_ptr
           ,             randoms_ptr_
           ,             random_configs_ptr_
           ;
@@ -226,12 +242,14 @@ public:
   int temporary_memory_size();
   int example_memory_size();
   int weights_memory_size();
+  int biases_memory_size();
   int randoms_memory_size();
   int random_configs_memory_size();
   int neurons_batch_size( Vertex v );
 private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
+  DevicePtr map_biases_ptrs( const pair<Vertex,pair<int,bool> > &vertex_and_layout, DevicePtr p );
   int weight_matrix_size( Edge e );
 
 protected:
@@ -245,12 +263,17 @@ protected:
  
    // the int is the size, the bool is triple-buffering
    map<Edge, pair< int, bool > > weights_memory_layout_map;
+   map<Vertex, pair< int, bool > > biases_memory_layout_map;
  
    // for each Edge, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the weights will not be written to)
    map<Edge, vector< DevicePtr > > weights_ptr_map;
  
-};
+   // for each Vertex, a pointer for each of 3 phases
+   // (they will all point to the same buffer iff the vertex's biases will not be written to)
+   map<Vertex, vector< DevicePtr > > biases_ptr_map;
+ 
+}; // end class DBNMemoryMapper
 
 } // end namespace thinkerbell
 

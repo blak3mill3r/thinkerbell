@@ -1,3 +1,6 @@
+biases_memory_layout_map could be simplified to map<Vertex,int>
+maybe weights_memory_layout_map too
+
 todo
   biases
     allocate temp memory for them very much like weights, 3 for training-vertices

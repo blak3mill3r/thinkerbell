@@ -16,28 +16,37 @@ DBNMemoryMapper::DBNMemoryMapper( DBNScheduler * dbn_scheduler_
 }
 
 void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
+                                            , DevicePtr biases_memory_ptr_
                                             , DevicePtr example_memory_ptr_
                                             , DevicePtr temporary_memory_ptr_
                                             , DevicePtr randoms_memory_ptr_
                                             , DevicePtr random_configs_memory_ptr_
                                             )
 {
+  weights_memory_ptr    = weights_memory_ptr_;
+  biases_memory_ptr     = biases_memory_ptr_;
+  example_memory_ptr    = example_memory_ptr_;
+  temporary_memory_ptr  = temporary_memory_ptr_; 
+  randoms_ptr_          = randoms_memory_ptr_; 
+  random_configs_ptr_   = random_configs_memory_ptr_; 
 
-  weights_memory_ptr = weights_memory_ptr_;
-  example_memory_ptr = example_memory_ptr_;
-  temporary_memory_ptr = temporary_memory_ptr_; 
-  randoms_ptr_ = randoms_memory_ptr_; 
-  random_configs_ptr_ = random_configs_memory_ptr_; 
-
+  // decide on a temporary memory layout
   map_temporary_ptrs();
 
-  DevicePtr currentp = weights_memory_ptr;
-
   // iterate through weights_memory_layout_map creating pointers and inserting them in weights_ptr_map
+  DevicePtr currentp = weights_memory_ptr;
   pair<Edge, pair<int,bool> > jj;
   BOOST_FOREACH( jj, make_pair(weights_memory_layout_map.begin(), weights_memory_layout_map.end()) )
   {
     currentp = map_weights_ptrs( jj, currentp );
+  }
+
+  // iterate through biases_memory_layout_map creating pointers and inserting them in biases_ptr_map
+  currentp = biases_memory_ptr;
+  pair<Vertex, pair<int,bool> > vv;
+  BOOST_FOREACH( vv, make_pair(biases_memory_layout_map.begin(),biases_memory_layout_map.end()) )
+  {
+    currentp = map_biases_ptrs( vv, currentp );
   }
 
   // assign DevicePtrs for the start of each example buffer for each input vertex
@@ -107,6 +116,25 @@ DevicePtr DBNMemoryMapper::map_weights_ptrs( const pair<Edge,pair<int,bool> > &e
   return( p + (sizeof(float) * memory_requirement) );
 }
 
+DevicePtr DBNMemoryMapper::map_biases_ptrs( const pair<Vertex,pair<int,bool> > &vertex_and_layout, DevicePtr p )
+{
+  Vertex v;
+  pair<int,bool> layout;
+  tie(v, layout) = vertex_and_layout;
+  int memory_requirement;
+  bool triple_buffer;
+  tie(memory_requirement, triple_buffer) = layout;
+  if (triple_buffer) {
+    int buffer_size = memory_requirement / 3;
+    for( int i = 0; i < 3; ++i )
+      (biases_ptr_map[v]).push_back( p + (i * buffer_size * sizeof(float)) );
+  } else {
+    for( int i = 0; i < 3; ++i )
+      (biases_ptr_map[v]).push_back( p );
+  }
+  return( p + (sizeof(float) * memory_requirement) );
+}
+
 int DBNMemoryMapper::weight_matrix_size( Edge e )
 {
   Vertex sourcev = source( e, dbn->m_graph );
@@ -164,7 +192,27 @@ int DBNMemoryMapper::weights_memory_size()
                          )
             )
           );
-  //cout << "weights memory size = " << total_size << " floats " << endl;
+  return (sizeof(float) * total_size);
+}
+
+int DBNMemoryMapper::biases_memory_size()
+{
+  Vertex current;
+  BOOST_FOREACH( current, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+  {
+    int size = dbn->neurons_size(current);
+    int requirement = dbn->is_in_training(current) ? 3*size : size ;
+    biases_memory_layout_map[current] = make_pair(requirement, dbn->is_in_training(current));
+  }
+
+  int total_size = 0;
+
+  pair<Vertex, pair<int,bool> > vv;
+  BOOST_FOREACH(vv, biases_memory_layout_map)
+  {
+    total_size += vv.second.first;
+  }
+
   return (sizeof(float) * total_size);
 }
 

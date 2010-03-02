@@ -11,9 +11,9 @@ class Neurons {
     Neurons( uint n );
     ~Neurons();
     uint size() const;
+    float * biases;
   private:
     uint m_size;
-    float * biases;
 
     friend class boost::serialization::access;
     template<class Archive>

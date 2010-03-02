@@ -56,10 +56,6 @@ void DBNScheduler::seedMTGPU(unsigned int seed){
 
 void DBNScheduler::operator()()
 {
-  float reality[0x1000];
-  for(int zz=0; zz<0x1000; ++zz)
-    reality[zz] = sinf( float(zz)*(720.0/0x1000) * M_PI / 180.0 ) * 0.5 + 0.5;
-
   // cuda context is good for the scope of this object:
   Cuda context(0);
 
@@ -78,12 +74,14 @@ void DBNScheduler::operator()()
 
   // allocate device memory for the algorithm
   auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
+  auto_ptr<DeviceMemory> biases_memory(         new DeviceMemory( dmemory->biases_memory_size()        ) );
   auto_ptr<DeviceMemory> example_memory(        new DeviceMemory( dmemory->example_memory_size()        ) );
   auto_ptr<DeviceMemory> temporary_memory(      new DeviceMemory( dmemory->temporary_memory_size()      ) );
   auto_ptr<DeviceMemory> randoms_memory(        new DeviceMemory( dmemory->randoms_memory_size()        ) );
   auto_ptr<DeviceMemory> random_configs_memory( new DeviceMemory( dmemory->random_configs_memory_size() ) );
 
   dmemory->allocate_device_memory( weights_memory->ptr()
+                                 , biases_memory->ptr()
                                  , example_memory->ptr()
                                  , temporary_memory->ptr()
                                  , randoms_memory->ptr()
@@ -91,11 +89,21 @@ void DBNScheduler::operator()()
                                  );
 
   // transfer weights to device, all 3 buffers
+  // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
   BOOST_FOREACH( Edge e, make_pair(dbn->all_edges_begin(),dbn->all_edges_end()))
   {
     dmemory->upload_weights( e, 0 );
     dmemory->upload_weights( e, 1 );
     dmemory->upload_weights( e, 2 );
+  }
+
+  // transfer biases to device, all 3 buffers
+  // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
+  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()))
+  {
+    dmemory->upload_biases( v, 0 );
+    dmemory->upload_biases( v, 1 );
+    dmemory->upload_biases( v, 2 );
   }
 
   // init the rng
