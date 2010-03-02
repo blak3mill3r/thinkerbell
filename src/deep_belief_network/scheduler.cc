@@ -120,6 +120,7 @@ void DBNScheduler::operator()()
   // transfer examples into buffers A, B and C
   BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
   {
+    //FIXME
   }
 
   //////////////////////////////////////
@@ -379,16 +380,24 @@ void DBNScheduler::operator()()
   streams[0]->synchronize();
   streams[1]->synchronize();
 
+  // transfer weights back to host
+  // (zzz+2)%3 is the last buffer where weights/biases were written
+  int last_buffer_written_to = (zzz+2)%3;
   BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
   {
-    dmemory->download_weights( e, (zzz+2)%3 );
+    dmemory->download_weights( e, last_buffer_written_to );
+  }
+
+  // transfer biases back to host
+  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()))
+  {
+    if(dbn->is_in_training(v))
+      dmemory->download_biases( v, last_buffer_written_to );
   }
 
   delete streams[1];
   delete streams[0];
   
 }
-
-
 
 } // end namespace thinkerbell

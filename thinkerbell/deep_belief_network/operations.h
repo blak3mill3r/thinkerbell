@@ -13,8 +13,8 @@ class DbnOperations : noncopyable
 {
 public:
   DbnOperations()
-    : module_rbm_kernels("src/rbm_kernels.cubin")
-    , module_rng_kernels("src/mersenne_twister_kernels.cubin")
+    : module_rbm_kernels("cubins/rbm_kernels.cubin")
+    , module_rng_kernels("cubins/mersenne_twister_kernels.cubin")
     , mmul(              module_rbm_kernels, "mmul" )
     , mmultb(            module_rbm_kernels, "mmul_transpose_b" )
     , weight_adjustment( module_rbm_kernels, "weight_adjustment" )

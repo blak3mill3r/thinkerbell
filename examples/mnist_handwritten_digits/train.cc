@@ -5,14 +5,15 @@
 #include <boost/thread/locks.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/program_options.hpp>
 #include <cudamm/cuda.hpp>
 #include <thinkerbell/deep_belief_network.h>
 #include <thinkerbell/deep_belief_network/scheduler.h>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
-#define B_SIZE 1024
-#define C_SIZE 2048
-#define D_SIZE 4096
+#define B_SIZE 1024                  // 1st level feature detectors
+#define C_SIZE 2048                  // 2nd level feature detectors
+#define D_SIZE 4096                  // 3rd level feature detectors
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define BATCH_SIZE 16
 #define NUM_BATCHES_ON_DEVICE 1
@@ -24,24 +25,41 @@
 using namespace std;
 using namespace thinkerbell;
 
+namespace po = boost::program_options;
+
 int main(int argc, char** argv)
 {
+  string dbn_filename;
+
+  po::options_description desc("Usage");
+  desc.add_options()
+      ("help", "output not-very-helpful text")
+      ("dbn", po::value<string>(&dbn_filename)->default_value("handwritten_digits_example.dbn"), "path to dbn file")
+  ;
+  
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);    
+  
+  if (vm.count("help")) {
+      cout << desc << "\n";
+      return 1;
+  }
+  
+  // construct the DBN
   DBN dbn;
   Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
-       //, vL = dbn.add_neurons( L_SIZE, "digit labels" )
        , vB = dbn.add_neurons( B_SIZE, "hidden 1" )
-       //, vC = dbn.add_neurons( C_SIZE, "hidden 2" )
-       //, vD = dbn.add_neurons( D_SIZE, "hidden 3" )
        ;
 
   Edge e = dbn.connect( vA, vB );
-  //dbn.connect( vB, vC );
-  //dbn.connect( vC, vD );
-  //dbn.connect( vL, vD );
 
+  // randomize weights
   dbn.m_graph[e].rbm->randomize_weights();
 
+  // init trainer
   DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
+
   // read examples from MNIST training set
   // convert to floats
   float * digit_images = trainer.get_example_buffer("digit image");
@@ -77,8 +95,10 @@ int main(int argc, char** argv)
     free(digit_images_uchar);
   }
   
+  // init scheduler
   DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
 
+  // start training
   thread scheduler_thread( ref(scheduler) );
 
   sleep(10);
