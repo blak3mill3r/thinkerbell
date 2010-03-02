@@ -1,10 +1,6 @@
 #include "deep_belief_network/scheduler.h"
 
 namespace thinkerbell {
-using namespace std;
-using namespace boost::lambda;
-using boost::lambda::bind;
-using boost::lambda::_1;
 
 DBNScheduler::DBNScheduler( DBN * dbn_
                           , DBNTrainer * trainer_

@@ -25,12 +25,6 @@
 
 namespace thinkerbell {
 
-using namespace cuda;
-using namespace std;
-using namespace boost::lambda;
-using boost::lambda::_1;
-using boost::lambda::bind;
-
 class DBNScheduler : noncopyable
 {
 private:

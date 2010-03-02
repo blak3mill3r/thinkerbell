@@ -1,11 +1,6 @@
 #include "deep_belief_network/memory_mapper.h"
 
 namespace thinkerbell {
-using namespace std;
-using namespace boost::lambda;
-using boost::lambda::bind;
-using boost::lambda::_1;
-
 
 DBNMemoryMapper::DBNMemoryMapper( DBNScheduler * dbn_scheduler_
                                 , DBN * dbn_
