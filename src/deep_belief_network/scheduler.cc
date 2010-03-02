@@ -99,7 +99,7 @@ void DBNScheduler::operator()()
 
   // transfer biases to device, all 3 buffers
   // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
-  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()))
+  BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()))
   {
     dmemory->upload_biases( v, 0 );
     dmemory->upload_biases( v, 1 );
@@ -164,7 +164,7 @@ void DBNScheduler::operator()()
       { exec_end[bufa].synchronize(); }
 
     // for each vertex in topo order
-    BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+    BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
     {
       if(dbn->is_input_vertex(v))
       { // v's activation amounts to setting neuron energies from a training example
@@ -389,7 +389,7 @@ void DBNScheduler::operator()()
   }
 
   // transfer biases back to host
-  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()))
+  BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()))
   {
     if(dbn->is_in_training(v))
       dmemory->download_biases( v, last_buffer_written_to );

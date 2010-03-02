@@ -67,7 +67,7 @@ int DBNMemoryMapper::random_configs_memory_size()
 
 int DBNMemoryMapper::temporary_memory_size()
 {
-  BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+  BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
   {
     tmp_alloc( v );
     //tmp_spaces_debug();
@@ -198,7 +198,7 @@ int DBNMemoryMapper::weights_memory_size()
 int DBNMemoryMapper::biases_memory_size()
 {
   Vertex current;
-  BOOST_FOREACH( current, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
+  BOOST_FOREACH( current, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
   {
     int size = dbn->neurons_size(current);
     int requirement = dbn->is_in_training(current) ? 3*size : size ;

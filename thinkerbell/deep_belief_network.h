@@ -30,9 +30,9 @@ using namespace boost::lambda;
 struct VertexProperties
 {
     string name;
-    bool active;
+    bool mask; // if true, this vertex and any connected edges will be ignored FIXME this isn't true yet
     Neurons *neurons;
-    VertexProperties() : name("anonymous neurons"), active(true) {}
+    VertexProperties() : name("anonymous neurons"), mask(true) {}
   private:
     friend class boost::serialization::access;
     template<class Archive>
@@ -72,12 +72,12 @@ typedef graph_traits<DBNGraph>::vertex_descriptor Vertex;
 typedef graph_traits<DBNGraph>::edge_descriptor Edge;
 
 // a DBN is a graph with a Neurons instance at each vertex and an Rbm instance at each edge
-// Edges represent connected Neurons pairs
+// the edges represent connected Neurons pairs
 // activating the target based on the source is "perceiving"
 // activating the source based on the target is "fantasizing"
-// a Node with no in-edges is an "input" Node
-// a Node with no out-edges is a "output" Node
-// Nodes with multiple in-edges or multiple out-edges is not implemented yet (in other words the graph might as well be a list at this point)
+// a vertex with no in-edges is an "input" Vertex
+// there must be exactly 1 vertex with 0 out-edges and no vertex can have more than 1 out-edge
+// IOW it's a tree
 class DBN
 {
   public:
@@ -89,13 +89,15 @@ class DBN
     list<Vertex>::const_iterator topological_order_end() const { return m_topological_order.end(); }
     list<Vertex>::const_iterator input_vertices_begin() const { return m_input_vertices.begin(); }
     list<Vertex>::const_iterator input_vertices_end() const { return m_input_vertices.end(); }
+    list<Vertex>::const_iterator all_vertices_begin() const { return m_all_vertices.begin(); }
+    list<Vertex>::const_iterator all_vertices_end() const { return m_all_vertices.end(); }
     list<Edge>::const_iterator training_edges_begin() const { return m_training_edges.begin(); }
     list<Edge>::const_iterator training_edges_end() const { return m_training_edges.end(); }
     list<Edge>::const_iterator non_training_edges_begin() const { return m_non_training_edges.begin(); }
     list<Edge>::const_iterator non_training_edges_end() const { return m_non_training_edges.end(); }
     list<Edge>::const_iterator all_edges_begin() const { return m_all_edges.begin(); }
     list<Edge>::const_iterator all_edges_end() const { return m_all_edges.end(); }
-    Vertex top_vertex() { return m_topological_order.back(); }
+    Vertex top_vertex() { return m_all_vertices.back(); }
     DBNGraph m_graph;
 
     int neurons_size( Vertex v )
@@ -110,13 +112,19 @@ class DBN
     std::string neurons_name( Vertex v )
       { return (m_graph)[v].name; }
 
+    void mask( Vertex v );   //FIXME I'm not sure mask/unmask is the best name
+    void unmask( Vertex v );
+    bool is_masked( Vertex v );
+    bool is_masked( Edge e );
     bool is_in_training( Vertex v );
     bool is_in_training( Edge e );
     bool is_input_vertex( Vertex v );
+    bool is_top_vertex( Vertex v );
 
   protected:
     void update_graph_metadata();
     list<Vertex> m_topological_order;
+    list<Vertex> m_all_vertices;
     list<Vertex> m_input_vertices;
     list<Edge> m_training_edges;
     list<Edge> m_non_training_edges;

@@ -49,13 +49,24 @@ int main(int argc, char** argv)
   // construct the DBN
   DBN dbn;
   Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
-       , vB = dbn.add_neurons( B_SIZE, "hidden 1" )
+       , vB = dbn.add_neurons( B_SIZE, "feature detector 1" )
+       , vC = dbn.add_neurons( C_SIZE, "feature detector 2" )
+       , vD = dbn.add_neurons( D_SIZE, "feature detector 3" )
+       , vL = dbn.add_neurons( L_SIZE, "digit labels" )
        ;
 
-  Edge e = dbn.connect( vA, vB );
+  Edge edge_ab = dbn.connect( vA, vB )
+     , edge_bc = dbn.connect( vB, vC )
+     , edge_cd = dbn.connect( vC, vD )
+     , edge_ld = dbn.connect( vL, vD )
+     ;
 
-  // randomize weights
-  dbn.m_graph[e].rbm->randomize_weights();
+  // randomize the weights we are about to train
+  dbn.m_graph[edge_ab].rbm->randomize_weights();
+
+  // unmask A & B
+  dbn.unmask( vA );
+  dbn.unmask( vB );
 
   // init trainer
   DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
