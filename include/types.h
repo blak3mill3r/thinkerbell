@@ -1,7 +1,7 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef __THINKERBELL_TYPES_H__
+#define __THINKERBELL_TYPES_H__
 
-#include "exceptions.h"
+#include <thinkerbell/exceptions.h>
 #include <sys/types.h>
 
 namespace thinkerbell {

@@ -1,4 +1,4 @@
-#include "deep_belief_network/scheduler.h"
+#include <thinkerbell/deep_belief_network/scheduler.h>
 
 namespace thinkerbell {
 
@@ -376,7 +376,6 @@ void DBNScheduler::operator()()
   }
 
   alldone:
-  Logger::log("wait for streams to finish");
   streams[0]->synchronize();
   streams[1]->synchronize();
 
@@ -387,7 +386,6 @@ void DBNScheduler::operator()()
 
   delete streams[1];
   delete streams[0];
-  Logger::log("exiting");
   
 }
 

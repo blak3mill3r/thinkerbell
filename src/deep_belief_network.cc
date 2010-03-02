@@ -1,4 +1,4 @@
-#include "deep_belief_network.h"
+#include <thinkerbell/deep_belief_network.h>
 
 namespace thinkerbell {
 

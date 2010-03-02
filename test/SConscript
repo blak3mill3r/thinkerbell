@@ -6,7 +6,7 @@ Import('env')
 
 lib_path = env.Dir('../lib').abspath
 src_path = env.Dir('../src').abspath
-include_path = env.Dir('../include').abspath
+include_path = env.Dir('../').abspath
 
 testEnv = testEnv.Clone()
 testEnv.AppendUnique(LIBPATH=[lib_path], LIBS=['thinkerbell', 'boost_thread-mt', 'pthread', 'cudamm', 'cuda'])

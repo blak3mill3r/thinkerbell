@@ -1,4 +1,4 @@
-#include "deep_belief_network/memory_mapper.h"
+#include <thinkerbell/deep_belief_network/memory_mapper.h>
 
 namespace thinkerbell {
 

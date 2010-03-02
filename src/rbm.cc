@@ -5,7 +5,7 @@
  */
 
 #include <iostream>
-#include "rbm.h"
+#include <thinkerbell/rbm.h>
 
 namespace thinkerbell {
 

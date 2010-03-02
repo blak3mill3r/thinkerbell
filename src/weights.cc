@@ -3,7 +3,7 @@
  * represents the weights of a set of connections between two instances of Neurons A and B
  */
 
-#include "weights.h"
+#include <thinkerbell/weights.h>
 
 namespace thinkerbell {
 

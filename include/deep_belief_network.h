@@ -17,9 +17,9 @@
 #include <boost/lambda/bind.hpp>
 #include <boost/foreach.hpp>
 
-#include "types.h"
-#include "neurons.h"
-#include "rbm.h"
+#include <thinkerbell/types.h>
+#include <thinkerbell/neurons.h>
+#include <thinkerbell/rbm.h>
 
 namespace thinkerbell {
 using namespace std;

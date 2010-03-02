@@ -1,5 +1,5 @@
-#ifndef __EXCEPTIONS_H__
-#define __EXCEPTIONS_H__
+#ifndef __THINKERBELL_EXCEPTIONS_H__
+#define __THINKERBELL_EXCEPTIONS_H__
 
 #include <exception>
 

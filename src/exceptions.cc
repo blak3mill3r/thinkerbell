@@ -1,4 +1,4 @@
-#include "exceptions.h"
+#include <thinkerbell/exceptions.h>
 
 namespace thinkerbell {
 c_exception        exception;

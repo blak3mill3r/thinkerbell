@@ -2,9 +2,9 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <weights.h>
-#include <neurons.h>
-#include <deep_belief_network.h>
+#include <thinkerbell/weights.h>
+#include <thinkerbell/neurons.h>
+#include <thinkerbell/deep_belief_network.h>
 #include <cudamm/cuda.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 

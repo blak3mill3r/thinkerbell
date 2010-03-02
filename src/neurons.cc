@@ -4,7 +4,7 @@
  * in host and device memory
  */
 
-#include "neurons.h"
+#include <thinkerbell/neurons.h>
 
 namespace thinkerbell {
 
