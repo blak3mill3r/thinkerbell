@@ -1,2 +1,4 @@
-I haven't written any documentation yet.
-The lib doesn't really do anything yet.
+Thinkerbell
+===========
+
+A library for training deep belief networks fast with CUDA-capable GPUs.

@@ -1,22 +1,13 @@
 #ifndef __DEEP_BELIEF_NETWORK_SCHEDULER_H__
 #define __DEEP_BELIEF_NETWORK_SCHEDULER_H__
 
-#include <vector>
-#include <list>
-#include <iostream>
 #include <fstream>
-#include <algorithm>
-#include "deep_belief_network.h"
-#include <boost/thread/condition.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/thread/xtime.hpp>
-#include <boost/lambda/lambda.hpp>
-#include <boost/lambda/bind.hpp>
-#include <boost/lambda/algorithm.hpp>
 #include <boost/foreach.hpp>
 #include <cudamm/cuda.hpp>
 #include "tmp.h"
 #include "mersenne_twister.h"
+#include "deep_belief_network.h"
 #include "deep_belief_network/operations.h"
 #include "deep_belief_network/trainer.h"
 #include "deep_belief_network/memory_mapper.h"
