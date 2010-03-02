@@ -1,3 +1,4 @@
+#define _DOTHREADSTEST
 #ifdef _DOTHREADSTEST
 #define WITH_LOGGING
 
@@ -9,10 +10,9 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <cudamm/cuda.hpp>
-#include "deep_belief_network.h"
-#include "deep_belief_network/scheduler.h"
+#include <thinkerbell/deep_belief_network.h>
+#include <thinkerbell/deep_belief_network/scheduler.h>
 #include <boost/test/unit_test.hpp>
-#include "logger.h"
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
 #define B_SIZE 1024
@@ -33,7 +33,6 @@ using namespace thinkerbell;
 
 BOOST_AUTO_TEST_CASE( foo )
 {
-  Logger::log("init..");
   DBN dbn;
   Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
        //, vL = dbn.add_neurons( L_SIZE, "digit labels" )
@@ -49,15 +48,6 @@ BOOST_AUTO_TEST_CASE( foo )
 
   dbn.m_graph[e].rbm->randomize_weights();
 
-  /*
-  float* weights = dbn.m_graph[e].rbm->m_W.weights();
-  for(int i=0; i< A_SIZE*B_SIZE; ++i)
-  {
-    cout << weights[i] << "\t";
-    if(i%8==0) cout << endl;
-  }
-  */
- 
   DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
   // read examples from MNIST training set
   // convert to floats
@@ -96,21 +86,11 @@ BOOST_AUTO_TEST_CASE( foo )
   
   DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
 
-  Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );
 
   sleep(10);
-  Logger::log("sending stop signal");
   scheduler.stop();
   scheduler_thread.join();
-
-  /*
-  for(int i=0; i< A_SIZE*B_SIZE; ++i)
-  {
-    cout << weights[i] << "\t";
-    if(i%8==0) cout << endl;
-  }
-  */
 
 }
 #endif

@@ -12,7 +12,7 @@ env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.en
 env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
 env['CCFLAGS'] = [ '-Wno-deprecated' ] #'-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
 env['CPPPATH'] = [ './src', './include', '/home/blake/w/cudamm/' ]
-env['LIBS'] = [ 'cudamm', 'cuda', 'jack', 'boost_serialization-mt' ]
+env['LIBS'] = [ 'cudamm', 'cuda', 'boost_serialization-mt' ]
 
 #if ARGUMENTS.get('debug', 0):
 env['CCFLAGS'] += ['-g' ]

@@ -1,0 +1,13 @@
+import os, glob
+
+SetOption( 'num_jobs', 4 )
+
+env = Environment()
+
+env['ENV'] = {'PATH':os.environ['PATH'], 'TERM':os.environ['TERM'], 'HOME':os.environ['HOME']} # Environment variables required by colorgcc.
+env['LIBPATH'] = [ './', '/usr/local/lib', '/usr/local/cuda/lib/' ]
+env['CCFLAGS'] = [ '-Wno-deprecated' ] #'-Wall', '-W', '-Wshadow', '-Wpointer-arith', '-Wcast-qual', '-Wwrite-strings', '-Wconversion', '-Winline', '-Wredundant-decls', '-Wno-unused', '-Wno-deprecated' ]
+env['CPPPATH'] = [ '/home/blake/w/cudamm/' ]
+env['LIBS'] = [ 'cudamm', 'cuda', 'boost_serialization-mt' ]
+
+env.Program( 'mnist_handwritten_digits/train', source = glob.glob( 'mnist_handwritten_digits/*.cc' ) )
