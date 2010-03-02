@@ -77,7 +77,6 @@ public:
     // we can now free up some temporary memory, as the neuron batch operand that we just used to activate this vertex isn't needed anymore, unless it's a training vertex
     Vertex sourcev = source( e, dbn->m_graph );
     if( !dbn->is_in_training(sourcev) ) tmp_free(sourcev);
-    if( dbn->is_in_training(sourcev) ) cout << "Not freeing vertex " << dbn->neurons_name(sourcev) << " because it's a training vertex." << endl;
   }
 
   inline void tmp_alloc( Vertex v )

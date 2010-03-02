@@ -1,10 +1,7 @@
 #ifndef __TEST_KERNELS_H__
 #define __TEST_KERNELS_H__
 
-//#include <stdio.h>
 #include "tmp.h"
-
-//using namespace thinkerbell;
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Matrix multiplication on the device: C = D + (A * B)
@@ -235,6 +232,43 @@ weight_adjustment( float* C
     }
 
     C[c + wC * ty + tx] = Csub;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// bias adjustments
+// sums batch_size batches of neuron energies from energies
+// multiplies them by learning_rate
+// writes to adjusted_biases, current_biases +/- adjustment
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
+__global__ void
+bias_adjustment( float* adjusted_biases
+               , float* current_biases
+               , float* energies
+               , int neurons_size
+               , int batch_size
+               , float learning_rate
+               , int negate
+               )
+{
+  int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+
+  // one thread per neuron
+  int neuroni = bx * gridDim.x + tx;
+  int batchi = 0;
+
+  float bias = current_biases[ neuroni ];
+
+  // iterate through the batches
+  if(negate)
+    for(; batchi < batch_size; ++batchi )
+      bias -= energies[batch_size * batchi + neuroni] * learning_rate;
+  else
+    for(; batchi < batch_size; ++batchi )
+      bias += energies[batch_size * batchi + neuroni] * learning_rate;
+
+  // write the result
+  adjusted_biases[ neuroni ] = bias;
 }
 
 /*

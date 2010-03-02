@@ -15,12 +15,13 @@ public:
   DbnOperations()
     : module_test_kernels("src/test_kernels.cubin")
     , module_rng_kernels("src/mersenne_twister_kernels.cubin")
-    , mmul( module_test_kernels,              "mmul" )
-    , mmultb( module_test_kernels,            "mmul_transpose_b" )
+    , mmul(              module_test_kernels, "mmul" )
+    , mmultb(            module_test_kernels, "mmul_transpose_b" )
     , weight_adjustment( module_test_kernels, "weight_adjustment" )
-    , activate_neurons( module_test_kernels,  "activate_neurons" )
-    , random( module_rng_kernels,             "RandomGPU" )
-    , box_muller( module_rng_kernels,         "BoxMullerGPU" )
+    , bias_adjustment(   module_test_kernels, "bias_adjustment" )
+    , activate_neurons(  module_test_kernels, "activate_neurons" )
+    , random(            module_rng_kernels,  "RandomGPU" )
+    , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
   {}
 
   void generate_randoms( const Stream &stream
@@ -181,6 +182,51 @@ public:
                                                        );
                                  }
 
+  void positive_bias_adjustment( const Stream &stream
+                               , int neurons_size
+                               , int batch_size
+                               , DevicePtr biases_current
+                               , DevicePtr biases_to_modify
+                               , DevicePtr neuron_energies
+                               , float learning_rate
+                               )
+                               {
+                                 bias_adjustment.setBlockShape( BLOCK_SIZE, 1, 1 );
+                                 bias_adjustment.go( neurons_size / BLOCK_SIZE
+                                                   , 1
+                                                   , stream
+                                                   , biases_to_modify
+                                                   , biases_current
+                                                   , neuron_energies
+                                                   , neurons_size
+                                                   , batch_size
+                                                   , learning_rate
+                                                   , false
+                                                   );
+                               }
+
+  void negative_bias_adjustment( const Stream &stream
+                               , int neurons_size
+                               , int batch_size
+                               , DevicePtr biases_to_modify
+                               , DevicePtr neuron_energies
+                               , float learning_rate
+                               )
+                               {
+                                 bias_adjustment.setBlockShape( BLOCK_SIZE, 1, 1 );
+                                 bias_adjustment.go( neurons_size / BLOCK_SIZE
+                                                   , 1
+                                                   , stream
+                                                   , biases_to_modify
+                                                   , biases_to_modify
+                                                   , neuron_energies
+                                                   , neurons_size
+                                                   , batch_size
+                                                   , learning_rate
+                                                   , true
+                                                   );
+                               }
+
   void debuggify( const Stream &stream
                 , DevicePtr neurons_ptr
                 , int neurons_size
@@ -209,6 +255,7 @@ private:
   Function mmul
          , mmultb
          , weight_adjustment
+         , bias_adjustment
          , activate_neurons
          , random
          , box_muller

@@ -227,37 +227,15 @@ void DBNScheduler::operator()()
     if(!exec_end[bufc].query())
       { exec_end[bufc].synchronize(); }
 
-    // for each in-edge of the top vertex, do a positive weight adjustment
+    // for each in-edge of the top vertex,
+    // do a positive weight adjustment and positive bias adjustment
     Vertex top = dbn->top_vertex();
     BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
     {
       Vertex sourcev = source( e, dbn->m_graph );
-      //cout << "Positive weight adjustment from " << dbn->neurons_name(sourcev) << " up to " << dbn->neurons_name(top) << "\n";
-      //cout << "\t" << streami
-      //     << "\t" << dbn->neurons_size(top)
-      //     << "\t" << dbn->neurons_size(sourcev)
-      //     << "\t" << batch_size
-      //     << "\t" << dmemory->weights_ptr(e, bufb).pingpang()
-      //     << "\t" << dmemory->weights_ptr(e, bufc).pingpang()
-      //     << "\t" << dmemory->neurons_ptr(sourcev, bufa).pingpang()
-      //     << "\t" << dmemory->neurons_ptr(top, bufa).pingpang()
-      //     << endl;
-
-      //cout << "Debuggify vertex " << dbn->neurons_name(sourcev) << endl;
-      //ops.debuggify( *streams[streami]
-      //             , dmemory->neurons_ptr(sourcev, bufa)
-      //             , dbn->neurons_size(sourcev)
-      //             , dmemory->neurons_batch_size(sourcev) 
-      //             );
-
-      //cout << "Debuggify vertex " << dbn->neurons_name(top) << endl;
-      //ops.debuggify( *streams[streami]
-      //             , dmemory->neurons_ptr(top, bufa)
-      //             , dbn->neurons_size(top)
-      //             , dmemory->neurons_batch_size(top) 
-      //             );
-
-      // read weights from bufb, adjust them based on sourcev and top in bufa, write them to bufc
+      // read weights from bufb
+      // adjust them based on sourcev and top in bufa
+      // write them to bufc
       ops.positive_weight_adjustment( *streams[streami]
                                     , dbn->neurons_size(top)
                                     , dbn->neurons_size(sourcev)
@@ -268,7 +246,28 @@ void DBNScheduler::operator()()
                                     , dmemory->neurons_ptr(top, bufa)
                                     , learning_rate
                                     );
+      // read biases from bufb
+      // adjust them based on sourcev in bufa
+      // write them to bufc
+      ops.positive_bias_adjustment( *streams[streami]
+                                  , dbn->neurons_size(sourcev)
+                                  , batch_size
+                                  , dmemory->biases_ptr(sourcev, bufb)
+                                  , dmemory->biases_ptr(sourcev, bufc)
+                                  , dmemory->neurons_ptr(sourcev, bufa)
+                                  , learning_rate
+                                  );
     }
+
+    // positive bias adjustment for top vertex:
+    ops.positive_bias_adjustment( *streams[streami]
+                                , dbn->neurons_size(top)
+                                , batch_size
+                                , dmemory->biases_ptr(top, bufb)
+                                , dmemory->biases_ptr(top, bufc)
+                                , dmemory->neurons_ptr(top, bufa)
+                                , learning_rate
+                                );
 
     // Alternating Gibbs sampling begins here
     // FIXME we should support more than 1 AGS iteration here allowing us to get closer to max-likelyhood learning at the expense of time
@@ -334,6 +333,7 @@ void DBNScheduler::operator()()
                        );
 
     // for each in-edge of the top vertex, do a negative weight adjustment
+    // and a negative bias adjustment for the source vertex
     BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
     {
       Vertex sourcev = source( e, dbn->m_graph );
@@ -346,7 +346,26 @@ void DBNScheduler::operator()()
                                     , dmemory->neurons_ptr(top, bufa)
                                     , learning_rate
                                     );
+      // read biases from bufb
+      // adjust them based on sourcev in bufa
+      // write them to bufc
+      ops.negative_bias_adjustment( *streams[streami]
+                                  , dbn->neurons_size(sourcev)
+                                  , batch_size
+                                  , dmemory->biases_ptr(sourcev, bufc)
+                                  , dmemory->neurons_ptr(sourcev, bufa)
+                                  , learning_rate
+                                  );
     }
+
+    // negative bias adjustment for top vertex
+    ops.negative_bias_adjustment( *streams[streami]
+                                , dbn->neurons_size(top)
+                                , batch_size
+                                , dmemory->biases_ptr(top, bufc)
+                                , dmemory->neurons_ptr(top, bufa)
+                                , learning_rate
+                                );
 
     
     exec_end[bufa].record( *(streams[streami]) );
