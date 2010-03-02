@@ -6,3 +6,4 @@
 tags
 test/test_suite
 lib/*.so
+tmp/*.archive

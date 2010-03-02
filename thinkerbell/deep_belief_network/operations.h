@@ -13,13 +13,13 @@ class DbnOperations : noncopyable
 {
 public:
   DbnOperations()
-    : module_test_kernels("src/test_kernels.cubin")
+    : module_rbm_kernels("src/rbm_kernels.cubin")
     , module_rng_kernels("src/mersenne_twister_kernels.cubin")
-    , mmul(              module_test_kernels, "mmul" )
-    , mmultb(            module_test_kernels, "mmul_transpose_b" )
-    , weight_adjustment( module_test_kernels, "weight_adjustment" )
-    , bias_adjustment(   module_test_kernels, "bias_adjustment" )
-    , activate_neurons(  module_test_kernels, "activate_neurons" )
+    , mmul(              module_rbm_kernels, "mmul" )
+    , mmultb(            module_rbm_kernels, "mmul_transpose_b" )
+    , weight_adjustment( module_rbm_kernels, "weight_adjustment" )
+    , bias_adjustment(   module_rbm_kernels, "bias_adjustment" )
+    , activate_neurons(  module_rbm_kernels, "activate_neurons" )
     , random(            module_rng_kernels,  "RandomGPU" )
     , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
   {}
@@ -249,7 +249,7 @@ public:
 
 private:
 
-  Module module_test_kernels;
+  Module module_rbm_kernels;
   Module module_rng_kernels;
 
   Function mmul

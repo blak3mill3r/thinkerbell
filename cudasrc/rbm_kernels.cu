@@ -1,116 +1,339 @@
-#ifdef _IGNORETHISBSFORNOW_
+#ifndef __TEST_KERNELS_H__
+#define __TEST_KERNELS_H__
 
-extern "C" {
-#include "types.h"
+#include <thinkerbell/tmp.h>
 
-using namespace thinkerbell;
+////////////////////////////////////////////////////////////////////////////////
+//! Matrix multiplication on the device: C = D + (A * B)
+//! wA is A's width and wB is B's width
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
+__global__ void
+mmul( float* C
+    , float* A
+    , float* B
+    , float* D
+    , int use_zero_instead_of_D
+    , int wA
+    , int wB
+    )
+{
+    // Block index
+    int bx = blockIdx.x;
+    int by = blockIdx.y;
 
-/*
- * Device code:
- * note that only certain sizes are acceptable for the input arrays
- * currently they have to be multiples of 16 ( the number of threads per block )
- */
+    // Thread index
+    int tx = threadIdx.x;
+    int ty = threadIdx.y;
+
+    // Index of the first sub-matrix of A processed by the block
+    int aBegin = wA * BLOCK_SIZE * by;
+
+    // Index of the last sub-matrix of A processed by the block
+    int aEnd   = aBegin + wA - 1;
+
+    // Step size used to iterate through the sub-matrices of A
+    int aStep  = BLOCK_SIZE;
+
+    // Index of the first sub-matrix of B processed by the block
+    int bBegin = BLOCK_SIZE * bx;
+
+    // Step size used to iterate through the sub-matrices of B
+    int bStep  = BLOCK_SIZE * wB;
+
+    // index in C (and D)
+    int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    // Csub is used to store the element of the block sub-matrix
+    // that is computed by the thread
+    float Csub = use_zero_instead_of_D ? 0 : D[c + wB * ty + tx];
+
+    // Loop over all the sub-matrices of A and B
+    // required to compute the block sub-matrix
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        // Declaration of the shared memory array As used to
+        // store the sub-matrix of A
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        // Declaration of the shared memory array Bs used to
+        // store the sub-matrix of B
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        // Load the matrices from device memory
+        // to shared memory; each thread loads
+        // one element of each matrix
+        As[ty][tx] = A[a + wA * ty + tx];
+        Bs[ty][tx] = B[b + wB * ty + tx];
+
+        // Synchronize to make sure the matrices are loaded
+        __syncthreads();
+
+        // Multiply the two matrices together;
+        // each thread computes one element
+        // of the block sub-matrix
+        for (int k = 0; k < BLOCK_SIZE; ++k)
+          Csub += As[ty][k] * Bs[k][tx];
+
+        // Synchronize to make sure that the preceding
+        // computation is done before loading two new
+        // sub-matrices of A and B in the next iteration
+        __syncthreads();
+    }
+
+    // Write the block sub-matrix to device memory;
+    // each thread writes one element
+    C[c + wB * ty + tx] = Csub;
+}
+
+
+
+////////////////////////////////////////////////////
+// Matrix multiplication which transposes B operand
+// C = D +/- (A*B)
+// wA is A's width
+////////////////////////////////////////////////////
+extern "C"
+__global__ void
+mmul_transpose_b( float* C
+                , float* A
+                , float* B
+                , int wA
+                )
+{
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+
+    int wB = wA;  //necessarily ... 
+
+    int aBegin = wA * BLOCK_SIZE * by;
+
+    int aEnd   = aBegin + wA - 1;
+
+    int aStep  = BLOCK_SIZE;
+
+    int bBegin = wB * BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE;
+
+    int wC = gridDim.x * BLOCK_SIZE;
+
+    int c = wC * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    float Csub = 0;
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[ty][tx] = A[a + wA * ty + tx];
+        Bs[tx][ty] = B[b + wB * ty + tx]; // note transposed B
+
+        __syncthreads();
+
+        for (int k = 0; k < BLOCK_SIZE; ++k)
+          Csub += As[ty][k] * Bs[k][tx];
+
+        __syncthreads();
+    }
+
+    C[c + wC * ty + tx] = Csub;
+}
 
 // the sigmoid function
-__device__ float sigmoid( float v, float steepness )
+__device__ float sigmoid( float v )
 {
-  return 1.0 / ( 1.0 + __expf( -v * steepness ) );
+  return 1.0 / ( 1.0 + __expf( -v ) );
 }
 
-// computes new activation level for neurons pointed to by A_activation
-// based on activation levels of neurons pointed to by B_activation
-// the weight matrix should be in A-major order
+extern "C"
 __global__ void
-activation_update_amajor( dNeurons A, dNeurons B, weight_type* W, float steepness )
+activate_neurons( float* energies               // read from
+                , float* activations            // write to
+                , float* randoms
+                , int neurons_size
+                , int binary )
 {
-  // compute index in A (unique to this thread)
-  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
-  int i = bi * (blockDim.x * blockDim.y) + threadIdx.y * blockDim.x + threadIdx.x;
-  
-  // loop over B accumulating each neuron's contribution to the activation of this A-neuron
-  float sum_of_inputs = 0.0;
-  for( int j = 0; j < B.size; ++j )
-    sum_of_inputs +=   W[i * B.size + j] * B.activations[j];
-
-  // set this A-neuron's activation to sigmoid(sum_of_inputs)
-  A.activations[i] = sigmoid(sum_of_inputs, steepness);
+  int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+  int x = BLOCK_SIZE*bx + tx;
+  int y = BLOCK_SIZE*by + ty;
+  int i = y*neurons_size + x;
+  float random = randoms[i];
+  float energy = sigmoid(energies[i]);
+  if(binary)
+    activations[i] = ( energy > random ) ? 1.0 : 0.0 ;
+  else
+    activations[i] = energy;
 }
 
-// computes new activation level for neurons pointed to by A_activation
-// based on activation levels of neurons pointed to by B_activation
-// the weight matrix should be in B-major order
+////////////////////////////////////////////////////
+// Matrix multiplication which transposes B operand
+// C = D +/- (A*B)
+// wA is A's width
+////////////////////////////////////////////////////
+extern "C"
 __global__ void
-activation_update_bmajor( dNeurons A, dNeurons B, weight_type* W, float steepness )
+weight_adjustment( float* C
+                 , float* A
+                 , float* B
+                 , float* D
+                 , float learning_rate
+                 , int wA
+                 , int negate
+                 )
 {
-  // compute index in A (unique to this thread)
-  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
-  int i = bi * (blockDim.x * blockDim.y)
-        + (threadIdx.y * blockDim.x) + threadIdx.x;
-  
-  // loop over B accumulating each neuron's contribution to the activation of this A-neuron
-  float sum_of_inputs = 0.0;
-  for( int j = 0; j < B.size; ++j )
-    sum_of_inputs +=   W[j * A.size + i] * B.activations[j];
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
-  // set this A-neuron's activation to sigmoid(sum_of_inputs)
-  A.activations[i] = sigmoid(sum_of_inputs, steepness);
+    int wB = wA;  //necessarily ... 
+
+    int aBegin = wA * BLOCK_SIZE * by;
+
+    int aEnd   = aBegin + wA - 1;
+
+    int aStep  = BLOCK_SIZE;
+
+    int bBegin = wB * BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE;
+
+    int wC = gridDim.x * BLOCK_SIZE;
+
+    int c = wC * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    float Csub = D[c + wC * ty + tx];
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[ty][tx] = A[a + wA * ty + tx];
+        Bs[tx][ty] = B[b + wB * ty + tx]; // note transposed B
+
+        __syncthreads();
+
+
+        if(negate)
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
+        else
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
+
+        __syncthreads();
+    }
+
+    C[c + wC * ty + tx] = Csub;
 }
 
-// samples how "on" each pair of neurons are
+////////////////////////////////////////////////////////////////////////////////
+// bias adjustments
+// sums batch_size batches of neuron energies from energies
+// multiplies them by learning_rate
+// writes to adjusted_biases, current_biases +/- adjustment
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
 __global__ void
-weight_sample( dNeurons A, dNeurons B, weight_type* W, float learning_rate )
+bias_adjustment( float* adjusted_biases
+               , float* current_biases
+               , float* energies
+               , int neurons_size
+               , int batch_size
+               , float learning_rate
+               , int negate
+               )
 {
-  // compute index in A (unique to this thread)
-  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
-  int i = bi * (blockDim.x * blockDim.y)
-        + (threadIdx.y * blockDim.x) + threadIdx.x;
+  int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
-  // loop over B computing the product of Ai and Bj and storing it in the weight space
-  for( int j = 0; j < B.size; ++j )
-    W[i * B.size + j] += (A.activations[i] * B.activations[j] * learning_rate);
-  
+  // one thread per neuron
+  int neuroni = bx * gridDim.x + tx;
+  int batchi = 0;
+
+  float bias = current_biases[ neuroni ];
+
+  // iterate through the batches
+  if(negate)
+    for(; batchi < batch_size; ++batchi )
+      bias -= energies[batch_size * batchi + neuroni] * learning_rate;
+  else
+    for(; batchi < batch_size; ++batchi )
+      bias += energies[batch_size * batchi + neuroni] * learning_rate;
+
+  // write the result
+  adjusted_biases[ neuroni ] = bias;
 }
 
-// adds W_scratch to W
-// A and B are not modified
-// statistics is for monitoring the magnitude of the changes
+/*
+this is not needed I think
+
+////////////////////////////////////////////////////////////////////////////////
+//! Matrix multiplication on the device: C = A-transposed * B
+//! wAt is A's height (also known as A-transposed's width) and wB is B's width
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
 __global__ void
-weight_update( dNeurons A, dNeurons B, weight_type * W, weight_type * W_scratch, weight_type * statistics )
+mmul_transpose_a( float* C
+                , float* A
+                , float* B
+                , float* D
+                , int negate
+                , int wAt
+                , int wB
+                , float learning_rate
+                )
 {
-  // compute index in A (unique to this thread)
-  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
-  int i = bi * (blockDim.x * blockDim.y)
-        + (threadIdx.y * blockDim.x) + threadIdx.x;
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
-  float total_delta = 0.0;  // the sum of the changes made to all weights in the following loop
+    int wA = gridDim.y * BLOCK_SIZE;
 
-  // loop over B adding W_scratch[Ai][Bj] to W[Ai][Bj]
-  for( int j = 0; j < B.size; ++j )
-  {
-    float delta = W_scratch[i * B.size + j];
-    W_scratch[i * B.size + j] = 0.0;
-    W[i * B.size + j] += delta;
-    total_delta += fabsf(delta);
-  }
+    int aBegin = BLOCK_SIZE * by;
 
-  statistics[i] = total_delta;
+    int aStep  = BLOCK_SIZE * wA;
+
+    int aEnd   = aBegin + (wA * wAt) - aStep;
+
+    int bBegin = BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE * wB;
+
+    int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    float Csub = 0;
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[tx][ty] = A[a + wA * ty + tx];
+        Bs[ty][tx] = B[b + wB * ty + tx];
+
+        __syncthreads();
+
+        if(negate)
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
+        else
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
+
+        __syncthreads();
+    }
+
+    C[c + wB * ty + tx] = Csub;
 }
+*/
 
-// decays weights
-// that is, multiplies them by some number "decay" in the range [0, 1]
-// A and B are not modified, they are there for their 'size' member
-__global__ void
-weight_decay( dNeurons A, dNeurons B, weight_type * W, float decay )
-{
-  // compute index in A (unique to this thread)
-  int bi = (gridDim.x * blockIdx.y) + blockIdx.x;
-  int i = bi * (blockDim.x * blockDim.y)
-        + (threadIdx.y * blockDim.x) + threadIdx.x;
 
-  // loop over B decaying weights
-  for( int j = 0; j < B.size; ++j )
-    W[i * B.size + j] = W[i * B.size + j] * decay;
-}
-
-}
 #endif
