@@ -1,7 +1,3 @@
-#define _DOTHREADSTEST
-#ifdef _DOTHREADSTEST
-#define WITH_LOGGING
-
 #include <boost/thread/condition.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
@@ -12,7 +8,6 @@
 #include <cudamm/cuda.hpp>
 #include <thinkerbell/deep_belief_network.h>
 #include <thinkerbell/deep_belief_network/scheduler.h>
-#include <boost/test/unit_test.hpp>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
 #define B_SIZE 1024
@@ -23,15 +18,13 @@
 #define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
 
-#define BOOST_TEST_MODULE thinkerbell_test_suite
-
 #define TRAIN_IMAGES_FILENAME "./data/train-images-idx3-ubyte"
 #define TRAIN_LABELS_FILENAME "./data/train-labels-idx1-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
 
-BOOST_AUTO_TEST_CASE( foo )
+int main(int argc, char** argv)
 {
   DBN dbn;
   Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
@@ -93,4 +86,3 @@ BOOST_AUTO_TEST_CASE( foo )
   scheduler_thread.join();
 
 }
-#endif
