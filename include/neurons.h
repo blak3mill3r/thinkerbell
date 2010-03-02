@@ -13,14 +13,14 @@ class Neurons {
     uint size() const;
   private:
     uint m_size;
+    float * biases;
 
     friend class boost::serialization::access;
     template<class Archive>
     void serialize( Archive & ar, const unsigned int version )
     {
-      // no members are serialized (except size, see below)
-      // it is still necessary for this class to have a serialize member
-      // as instances are serialized through pointers
+      for( int i = 0; i < m_size; ++i )
+        ar & biases[i];
     }
 };
 
