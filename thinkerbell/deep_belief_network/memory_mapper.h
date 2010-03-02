@@ -3,8 +3,8 @@
 
 #include <boost/foreach.hpp>
 #include <cudamm/cuda.hpp>
-#include "deep_belief_network.h"
-#include "mersenne_twister.h"
+#include <thinkerbell/deep_belief_network.h>
+#include <thinkerbell/mersenne_twister.h>
 
 namespace thinkerbell {
 

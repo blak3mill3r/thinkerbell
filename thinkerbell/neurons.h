@@ -1,7 +1,7 @@
 #ifndef __NEURONS_H__
 #define __NEURONS_H__
 
-#include "types.h"
+#include <thinkerbell/types.h>
 #include <boost/serialization/serialization.hpp>
 
 namespace thinkerbell {

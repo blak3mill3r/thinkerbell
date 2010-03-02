@@ -1,8 +1,8 @@
 #ifndef __RBM_H__
 #define __RBM_H__
 
-#include "neurons.h"
-#include "weights.h"
+#include <thinkerbell/neurons.h>
+#include <thinkerbell/weights.h>
 #include <boost/serialization/serialization.hpp>
 
 namespace thinkerbell {

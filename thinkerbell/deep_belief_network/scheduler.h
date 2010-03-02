@@ -5,14 +5,14 @@
 #include <boost/thread/thread.hpp>
 #include <boost/foreach.hpp>
 #include <cudamm/cuda.hpp>
-#include "tmp.h"
-#include "mersenne_twister.h"
-#include "deep_belief_network.h"
-#include "deep_belief_network/operations.h"
-#include "deep_belief_network/trainer.h"
-#include "deep_belief_network/memory_mapper.h"
+#include <thinkerbell/tmp.h>
+#include <thinkerbell/mersenne_twister.h>
+#include <thinkerbell/deep_belief_network.h>
+#include <thinkerbell/deep_belief_network/operations.h>
+#include <thinkerbell/deep_belief_network/trainer.h>
+#include <thinkerbell/deep_belief_network/memory_mapper.h>
 #define WITH_LOGGING
-#include "logger.h"
+#include <thinkerbell/logger.h>
 
 namespace thinkerbell {
 

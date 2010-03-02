@@ -1,7 +1,7 @@
 #ifndef __DBN_TRAINER_H__
 #define __DBN_TRAINER_H__
 
-#include "deep_belief_network.h"
+#include <thinkerbell/deep_belief_network.h>
 
 namespace thinkerbell {
 
