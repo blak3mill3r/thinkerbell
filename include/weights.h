@@ -44,7 +44,7 @@ inline void load_construct_data( Archive & ar, Weights * w, const unsigned int f
   // retrieve data from archive required to construct new instance
   int size;
   ar >> size;
-  // invoke inplace constructor to initialize instance of DeepBeliefNetwork
+  // invoke inplace constructor to initialize instance of DBN
   ::new(w)Weights(size);
 }
 

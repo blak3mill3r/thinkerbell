@@ -66,23 +66,23 @@ typedef adjacency_list<
   bidirectionalS,     // bidirectional
   VertexProperties,   // vertex properties
   EdgeProperties      // edge properties
-  > DeepBeliefNetworkGraph;
+  > DBNGraph;
 
-typedef graph_traits<DeepBeliefNetworkGraph>::vertex_descriptor Vertex;
-typedef graph_traits<DeepBeliefNetworkGraph>::edge_descriptor Edge;
+typedef graph_traits<DBNGraph>::vertex_descriptor Vertex;
+typedef graph_traits<DBNGraph>::edge_descriptor Edge;
 
-// a DeepBeliefNetwork is a graph with a Neurons instance at each vertex and an Rbm instance at each edge
+// a DBN is a graph with a Neurons instance at each vertex and an Rbm instance at each edge
 // Edges represent connected Neurons pairs
 // activating the target based on the source is "perceiving"
 // activating the source based on the target is "fantasizing"
 // a Node with no in-edges is an "input" Node
 // a Node with no out-edges is a "output" Node
 // Nodes with multiple in-edges or multiple out-edges is not implemented yet (in other words the graph might as well be a list at this point)
-class DeepBeliefNetwork
+class DBN
 {
   public:
-    DeepBeliefNetwork();
-    ~DeepBeliefNetwork();
+    DBN();
+    ~DBN();
     Vertex add_neurons( uint num_neurons, const std::string name = "anonymous neurons" );
     Edge connect( const Vertex &va, const Vertex &vb );
     list<Vertex>::const_iterator topological_order_begin() const { return m_topological_order.begin(); }
@@ -96,7 +96,7 @@ class DeepBeliefNetwork
     list<Edge>::const_iterator all_edges_begin() const { return m_all_edges.begin(); }
     list<Edge>::const_iterator all_edges_end() const { return m_all_edges.end(); }
     Vertex top_vertex() { return m_topological_order.back(); }
-    DeepBeliefNetworkGraph m_graph;
+    DBNGraph m_graph;
 
     int neurons_size( Vertex v )
       { return (m_graph)[v].neurons->size(); }

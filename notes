@@ -5,6 +5,10 @@ todo
     place in the host class Neurons for them
     kernels to adjust them
     put them in the algorithm in DBNScheduler
+
+  organization of example data
+    needs to be randomized order on the host
+    host buffer size has to be at least device_buffer_size * 3
     
     
 

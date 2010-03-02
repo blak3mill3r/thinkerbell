@@ -6,23 +6,28 @@ using namespace boost::lambda;
 using boost::lambda::bind;
 using boost::lambda::_1;
 
-DeepBeliefNetworkScheduler::DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ )
+DBNScheduler::DBNScheduler( DBN * dbn_
+                          , DBNTrainer * trainer_
+                          , int batch_size_
+                          , int num_example_batches_ 
+                          )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
-  , num_examples( num_examples_ )
+  , trainer( trainer_ )
+  , num_example_batches( num_example_batches_ )
   , time_to_stop( false )
-  , dmemory( new DeepBeliefNetworkMemoryMapper( this, dbn, batch_size, num_examples ) )
+  , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches ) )
 {
 }
 
-void DeepBeliefNetworkScheduler::init_rng()
+void DBNScheduler::init_rng()
 {
   loadMTGPU("data/MersenneTwister.dat");
   seedMTGPU(777);
 }
 
 //Load twister configurations
-void DeepBeliefNetworkScheduler::loadMTGPU(const char *fname){
+void DBNScheduler::loadMTGPU(const char *fname){
     FILE *fd = fopen(fname, "rb");
     if(!fd){
         printf("initMTGPU(): failed to open %s\n", fname);
@@ -38,7 +43,7 @@ void DeepBeliefNetworkScheduler::loadMTGPU(const char *fname){
 }
 
 //Initialize/seed twister for current GPU context
-void DeepBeliefNetworkScheduler::seedMTGPU(unsigned int seed){
+void DBNScheduler::seedMTGPU(unsigned int seed){
     int i;
     //Need to be thread-safe
     mt_struct_stripped *MT = (mt_struct_stripped *)std::malloc(MT_RNG_COUNT * sizeof(mt_struct_stripped));
@@ -53,7 +58,7 @@ void DeepBeliefNetworkScheduler::seedMTGPU(unsigned int seed){
     free(MT);
 }
 
-void DeepBeliefNetworkScheduler::operator()()
+void DBNScheduler::operator()()
 {
   float reality[0x1000];
   for(int zz=0; zz<0x1000; ++zz)
@@ -111,9 +116,6 @@ void DeepBeliefNetworkScheduler::operator()()
   // transfer examples into buffers A, B and C
   BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
   {
-    cuda::memcpy( dmemory->example_ptr(0), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
-    cuda::memcpy( dmemory->example_ptr(1), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
-    cuda::memcpy( dmemory->example_ptr(2), reality, sizeof(float) * num_examples * dbn->neurons_size(inputv) );
   }
 
   //////////////////////////////////////
@@ -139,21 +141,22 @@ void DeepBeliefNetworkScheduler::operator()()
 // b -> c
     int streami = i%2;
 
-    int training_example = choose_random_example();
+    int example_offset = trainer->get_random_example_offset();
 
-    // transfer examples into A buffer if necessary
-    //BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
-    //{
-    //  //activate_from_example(inputv, training_example);
-
-    //}
+    // transfer a batch of examples into A buffer
+    // FIXME OPTIMIZE do this every nth time or something... space them out
+    // ignoring NUM_BATCHES, FIXME when NUM_BATCHES != 1
+    BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
+    {
+      cuda::memcpy( dmemory->example_ptr( inputv, bufa )
+                  , trainer->get_example_batch( dbn->neurons_name(inputv), example_offset )
+                  , sizeof(float) * dmemory->neurons_batch_size(inputv)
+                  );
+    }
 
     // synch with the end of the execution of the last one using A buffers
     if(!exec_end[bufa].query())
-    {
-      //Logger::log("-");
-      exec_end[bufa].synchronize();
-    }
+      { exec_end[bufa].synchronize(); }
 
     // for each vertex in topo order
     BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
@@ -164,7 +167,7 @@ void DeepBeliefNetworkScheduler::operator()()
         ops.activate_input_vertex( dbn->neurons_size(v)
                                  , batch_size
                                  , (*streams[streami])
-                                 , dmemory->example_ptr(bufa) + (sizeof(float) * training_example * dbn->neurons_size(v)) // FIXME needs per-vertex (this only supports one input neuron)
+                                 , dmemory->example_ptr(v, bufa)
                                  , dmemory->vertex_ptr(v, bufa)
                                  );
       }
@@ -216,13 +219,9 @@ void DeepBeliefNetworkScheduler::operator()()
       }
     }
 
-    // synch with B-execution done
-    // we're expecting not to wait here but better safe than sorry
+    // synch with B-execution done because we're about to write to bufb weights
     if(!exec_end[bufc].query())
-    {
-      //Logger::log(".");
-      exec_end[bufc].synchronize();
-    }
+      { exec_end[bufc].synchronize(); }
 
     // for each in-edge of the top vertex, do a positive weight adjustment
     Vertex top = dbn->top_vertex();
@@ -254,6 +253,7 @@ void DeepBeliefNetworkScheduler::operator()()
       //             , dmemory->neurons_batch_size(top) 
       //             );
 
+      // read weights from bufb, adjust them based on sourcev and top in bufa, write them to bufc
       ops.positive_weight_adjustment( *streams[streami]
                                     , dbn->neurons_size(top)
                                     , dbn->neurons_size(sourcev)
@@ -267,6 +267,7 @@ void DeepBeliefNetworkScheduler::operator()()
     }
 
     // Alternating Gibbs sampling begins here
+    // FIXME we should support more than 1 AGS iteration here allowing us to get closer to max-likelyhood learning at the expense of time
     // first down-activate each source vertex of the top vertex
     BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
     {
@@ -368,24 +369,25 @@ void DeepBeliefNetworkScheduler::operator()()
 }
 
 
-DeepBeliefNetworkMemoryMapper::DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_
-                                                            , DeepBeliefNetwork * dbn_
-                                                            , int batch_size_
-                                                            , int num_examples_
-                                                            )
+DBNMemoryMapper::DBNMemoryMapper( DBNScheduler * dbn_scheduler_
+                                , DBN * dbn_
+                                , int batch_size_
+                                , int num_example_batches_
+                                )
   : dbn( dbn_ )
   , dbn_scheduler( dbn_scheduler_ )
   , batch_size( batch_size_ )
-  , num_examples( num_examples_ )
+  , num_example_batches( num_example_batches_ )
   , temporary_memory_minimum_size(0)
-{ }
+{
+}
 
-void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
-                                                          , DevicePtr example_memory_ptr_
-                                                          , DevicePtr temporary_memory_ptr_
-                                                          , DevicePtr randoms_memory_ptr_
-                                                          , DevicePtr random_configs_memory_ptr_
-                                                          )
+void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
+                                            , DevicePtr example_memory_ptr_
+                                            , DevicePtr temporary_memory_ptr_
+                                            , DevicePtr randoms_memory_ptr_
+                                            , DevicePtr random_configs_memory_ptr_
+                                            )
 {
 
   weights_memory_ptr = weights_memory_ptr_;
@@ -404,19 +406,24 @@ void DeepBeliefNetworkMemoryMapper::allocate_device_memory( DevicePtr weights_me
   {
     currentp = map_weights_ptrs( jj, currentp );
   }
-  //for_each( weights_memory_layout_map.begin()
-  //        , weights_memory_layout_map.end()
-  //        , var(currentp) = ret< DevicePtr >(lambda::bind( &DeepBeliefNetworkMemoryMapper::map_weights_ptrs, this, _1, var(currentp)))
-  //        );
+
+  // assign DevicePtrs for the start of each example buffer for each input vertex
+  int offset = 0;
+  BOOST_FOREACH( Vertex v, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
+  {
+    for(int z=0; z<3; ++z) 
+      example_memory_ptr_map[v].push_back( example_memory_ptr + sizeof(float) * (z * example_buffer_size + offset) );
+    offset += dbn->neurons_size(v) * batch_size;
+  }
 }
 
-int DeepBeliefNetworkMemoryMapper::randoms_memory_size()
+int DBNMemoryMapper::randoms_memory_size()
   { return (5860*4096*sizeof(float)); }
 
-int DeepBeliefNetworkMemoryMapper::random_configs_memory_size()
+int DBNMemoryMapper::random_configs_memory_size()
   { return (MT_RNG_COUNT * sizeof(mt_struct_stripped)); }
 
-int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
+int DBNMemoryMapper::temporary_memory_size()
 {
   BOOST_FOREACH( Vertex v, make_pair(dbn->topological_order_begin(),dbn->topological_order_end()) )
   {
@@ -437,18 +444,18 @@ int DeepBeliefNetworkMemoryMapper::temporary_memory_size()
 }
 
 
-int DeepBeliefNetworkMemoryMapper::example_memory_size()
+int DBNMemoryMapper::example_memory_size()
 {
-  int total_example_size = 0;
+  int example_batch_size = 0;
   BOOST_FOREACH( Vertex v, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
   {
-    total_example_size += dbn->neurons_size(v);
+    example_batch_size += dbn->neurons_size(v) * batch_size;
   }
-  example_buffer_size = total_example_size * num_examples;
+  example_buffer_size = example_batch_size * num_example_batches;
   return (sizeof(float) * example_buffer_size * 3);
 }
 
-DevicePtr DeepBeliefNetworkMemoryMapper::map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p )
+DevicePtr DBNMemoryMapper::map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p )
 {
   Edge e;
   pair<int,bool> layout;
@@ -467,7 +474,7 @@ DevicePtr DeepBeliefNetworkMemoryMapper::map_weights_ptrs( const pair<Edge,pair<
   return( p + (sizeof(float) * memory_requirement) );
 }
 
-int DeepBeliefNetworkMemoryMapper::weight_matrix_size( Edge e )
+int DBNMemoryMapper::weight_matrix_size( Edge e )
 {
   Vertex sourcev = source( e, dbn->m_graph );
   Vertex targetv = target( e, dbn->m_graph );
@@ -477,12 +484,12 @@ int DeepBeliefNetworkMemoryMapper::weight_matrix_size( Edge e )
   return (sourcevsize * targetvsize);
 }
 
-int DeepBeliefNetworkMemoryMapper::neurons_batch_size( Vertex v )
+int DBNMemoryMapper::neurons_batch_size( Vertex v )
 {
   return ( dbn->neurons_size(v) * batch_size );
 }
 
-void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool triple_buffered )
+void DBNMemoryMapper::weights_memory_requirements( Edge e, bool triple_buffered )
 {
   Vertex sourcev = source( e, dbn->m_graph );
   Vertex targetv = target( e, dbn->m_graph );
@@ -497,7 +504,7 @@ void DeepBeliefNetworkMemoryMapper::weights_memory_requirements( Edge e, bool tr
   weights_memory_layout_map[e] = make_pair(requirement, triple_buffered);
 }
 
-int DeepBeliefNetworkMemoryMapper::weights_memory_size()
+int DBNMemoryMapper::weights_memory_size()
 {
   Edge current;
   BOOST_FOREACH( current, make_pair(dbn->non_training_edges_begin(),dbn->non_training_edges_end()) )

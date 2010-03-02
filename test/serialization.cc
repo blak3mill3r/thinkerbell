@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE( serializeWeights )
   cuda::Stream stream;
   Weights w(16);
   Neurons neurons(16);
-  DeepBeliefNetwork dbn;
+  DBN dbn;
   Vertex vA = dbn.add_neurons( 16, "blah" );
   Vertex vB = dbn.add_neurons( 16, "blahblah" );
   dbn.connect( vA, vB );

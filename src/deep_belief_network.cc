@@ -5,23 +5,23 @@ namespace thinkerbell {
 using namespace std;
 using namespace boost;
 
-DeepBeliefNetwork::DeepBeliefNetwork()
+DBN::DBN()
 {
 }
 
-DeepBeliefNetwork::~DeepBeliefNetwork()
+DBN::~DBN()
 {
 }
 
 // a vertex is an input vertex iff it has no in-edges
-bool DeepBeliefNetwork::is_input_vertex( Vertex v )
+bool DBN::is_input_vertex( Vertex v )
 {
-  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
+  graph_traits< DBNGraph >::in_edge_iterator in_i, in_end;
   tie(in_i, in_end) = in_edges( v, m_graph );
   return ((in_end - in_i) == 0 );
 }
 
-bool DeepBeliefNetwork::is_in_training( Vertex v )
+bool DBN::is_in_training( Vertex v )
 {
   bool is_training_vertex = false;
   BOOST_FOREACH( Edge e, (in_edges(v, m_graph)) )
@@ -36,17 +36,17 @@ bool DeepBeliefNetwork::is_in_training( Vertex v )
 }
 
 // an Edge is "in training" iff it's target has no out edges
-bool DeepBeliefNetwork::is_in_training( Edge e )
+bool DBN::is_in_training( Edge e )
 {
   Vertex v = target( e, m_graph );
-  graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
+  graph_traits< DBNGraph >::out_edge_iterator out_i, out_end;
   tie(out_i, out_end) = out_edges( v, m_graph );
   return ((out_end - out_i)==0);
 }
 
 
 // create a connection from A to B
-Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
+Edge DBN::connect( const Vertex &va, const Vertex &vb )
 {
   Edge e = add_edge(va, vb, m_graph).first;
   m_graph[e].rbm = new Rbm( //FIXME problems serializing auto pointers
@@ -61,7 +61,7 @@ Edge DeepBeliefNetwork::connect( const Vertex &va, const Vertex &vb )
 }
 
 // create a neuron blob
-Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name )
+Vertex DBN::add_neurons( uint num_neurons, const std::string name )
 {
   // add a vertex:
   Vertex v = add_vertex(m_graph);
@@ -75,7 +75,7 @@ Vertex DeepBeliefNetwork::add_neurons( uint num_neurons, const std::string name 
   return v;
 }
 
-void DeepBeliefNetwork::update_graph_metadata()
+void DBN::update_graph_metadata()
 {
   // sort topologically:
   m_topological_order.clear();
@@ -90,14 +90,14 @@ void DeepBeliefNetwork::update_graph_metadata()
     if( is_input_vertex(currentv) ) m_input_vertices.push_back(currentv);
   }
 
-  graph_traits< DeepBeliefNetworkGraph >::edge_iterator ei, eend;
+  graph_traits< DBNGraph >::edge_iterator ei, eend;
   // build lists of training edges and non-training edges
   for(tie(ei, eend) = edges(m_graph); ei != eend; ei++)
   {
     // is this a training edge or not?
     Edge e = *ei;
     Vertex tv = target( e, m_graph );
-    graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
+    graph_traits< DBNGraph >::out_edge_iterator out_i, out_end;
     tie(out_i, out_end) = out_edges( tv, m_graph );
     bool no_out_edges = ( (out_end - out_i) == 0 );
     //( no_out_edges ? m_training_edges : m_non_training_edges ).push_back(e);
@@ -117,9 +117,9 @@ void DeepBeliefNetwork::update_graph_metadata()
 /*
 // call this after training step
 // it returns the average absolute weight adjustment per connection
-float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v ) 
+float DBN::average_weight_adjustment( const Vertex &v ) 
 {
-  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
+  graph_traits< DBNGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   m_graph[*in_i].rbm->m_W_statistics.device_to_host();
   weight_type * f = m_graph[*in_i].rbm->m_W_statistics.weights();
@@ -132,10 +132,10 @@ float DeepBeliefNetwork::average_weight_adjustment( const Vertex &v )
 }
 
 // sets activation of a Vertex based on all of its inputs
-void DeepBeliefNetwork::activate_vertex( const Vertex &v )
+void DBN::activate_vertex( const Vertex &v )
 {
   // get a list of in-edges
-  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
+  graph_traits< DBNGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   uint num_inputs = (in_end - in_i);
   switch( num_inputs )
@@ -153,10 +153,10 @@ void DeepBeliefNetwork::activate_vertex( const Vertex &v )
 }
 
 // sets activation of a Vertex based on all of its outputs (fantasize)
-void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
+void DBN::inverted_activate_vertex( const Vertex &v )
 {
   // get a list of out-edges
-  graph_traits< DeepBeliefNetworkGraph >::out_edge_iterator out_i, out_end;
+  graph_traits< DBNGraph >::out_edge_iterator out_i, out_end;
   tie( out_i, out_end ) = out_edges( v, m_graph );
   uint num_inputs = (out_end - out_i);
   switch( num_inputs )
@@ -173,10 +173,10 @@ void DeepBeliefNetwork::inverted_activate_vertex( const Vertex &v )
 }
 
 // performs a single training iteration (alternating Gibbs sampling and weight update)
-void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
+void DBN::training_step_vertex( const Vertex &v )
 {
   // get a list of in-edges
-  graph_traits< DeepBeliefNetworkGraph >::in_edge_iterator in_i, in_end;
+  graph_traits< DBNGraph >::in_edge_iterator in_i, in_end;
   tie( in_i, in_end ) = in_edges( v, m_graph );
   uint num_inputs = (in_end - in_i);
   switch( num_inputs )
@@ -192,12 +192,12 @@ void DeepBeliefNetwork::training_step_vertex( const Vertex &v )
   }
 }
 
-void DeepBeliefNetwork::set_example_trainer( const AbstractTrainer *trainer )
+void DBN::set_example_trainer( const AbstractTrainer *trainer )
 {
   m_example_trainer = trainer;
 }
 
-void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const TrainingExample &example )
+void DBN::set_neurons_from_example( const Vertex &v, const TrainingExample &example )
 {
   // device-to-device asynchronous copy
   cuda::memcpy( m_graph[v].neurons->m_device_memory.ptr(),
@@ -207,7 +207,7 @@ void DeepBeliefNetwork::set_neurons_from_example( const Vertex &v, const Trainin
 
 // perception through the whole graph
 // then performs one training step on the highest-level-Vertex
-void DeepBeliefNetwork::training_step( )
+void DBN::training_step( )
 {
   perceive();
 
@@ -216,29 +216,29 @@ void DeepBeliefNetwork::training_step( )
 }
 
 // activate forwards/upwards/perceptionwise through the whole graph
-void DeepBeliefNetwork::perceive( )
+void DBN::perceive( )
 {
   // activate in topological order
   for_each( topological_order.begin(),
             topological_order.end(),
-            bind(&DeepBeliefNetwork::activate_vertex, this, _1 )
+            bind(&DBN::activate_vertex, this, _1 )
           );
 }
 
 // activate backwards/downwards/fantasywise through the whole graph
 // (note: assumes that the highest level neurons has meaningful activations before this function is called, e.g. right after calling perceive())
-void DeepBeliefNetwork::fantasize( )
+void DBN::fantasize( )
 {
   // activate in reverse topological order
   for_each( topological_order.rbegin(),
             topological_order.rend(),
-            bind(&DeepBeliefNetwork::inverted_activate_vertex, this, _1 )
+            bind(&DBN::inverted_activate_vertex, this, _1 )
           );
 }
 
 // temporary ... grab the last training example and return a pointer to it
 // FIXME get rid of it
-activation_type * DeepBeliefNetwork::get_training_example()
+activation_type * DBN::get_training_example()
 {
   Neurons * n = m_graph[topological_order.front()].neurons;
   // copy back from device

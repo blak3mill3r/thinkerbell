@@ -109,8 +109,8 @@ BOOST_AUTO_TEST_CASE( deepBeliefNetwork )
   cuda::Stream stream;
   g_stream = &stream;
 
-  // instantiate a DeepBeliefNetwork
-  DeepBeliefNetwork dbn;
+  // instantiate a DBN
+  DBN dbn;
 
   // instantiate a AudioTrainer 
   AudioTrainer trainerA( A_SIZE, 32 );    // a pool the size of 20 examples (enough for every possible phase of both sine waves to be a training example) I think...

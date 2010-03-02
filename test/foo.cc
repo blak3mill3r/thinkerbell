@@ -15,15 +15,18 @@
 #include <boost/test/unit_test.hpp>
 #include "logger.h"
 
-#define A_SIZE 16
-#define B_SIZE 16
-#define C_SIZE 16
-#define D_SIZE 16
-#define L_SIZE 16
+#define A_SIZE 784                   // the 28x28 pixel handwritten digit image
+#define B_SIZE 1024
+#define C_SIZE 1024
+#define D_SIZE 1024
+#define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define BATCH_SIZE 16
-#define NUM_EXAMPLES_PER_BUFFER 16
+#define NUM_BATCHES 1
+#define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
 
 #define BOOST_TEST_MODULE thinkerbell_test_suite
+
+#define TRAIN_IMAGES_FILENAME "/home/blake/w/thinkerbell/data/train-images-idx3-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
@@ -31,9 +34,9 @@ using namespace thinkerbell;
 BOOST_AUTO_TEST_CASE( foo )
 {
   Logger::log("init..");
-  DeepBeliefNetwork dbn;
-  Vertex vA = dbn.add_neurons( A_SIZE, "visible" )
-       //, vL = dbn.add_neurons( L_SIZE, "labels" )
+  DBN dbn;
+  Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
+       //, vL = dbn.add_neurons( L_SIZE, "digit labels" )
        , vB = dbn.add_neurons( B_SIZE, "hidden 1" )
        //, vC = dbn.add_neurons( C_SIZE, "hidden 2" )
        //, vD = dbn.add_neurons( D_SIZE, "hidden 3" )
@@ -45,30 +48,68 @@ BOOST_AUTO_TEST_CASE( foo )
   //dbn.connect( vL, vD );
 
   dbn.m_graph[e].rbm->randomize_weights();
-  float* weights = dbn.m_graph[e].rbm->m_W.weights();
 
+  /*
+  float* weights = dbn.m_graph[e].rbm->m_W.weights();
   for(int i=0; i< A_SIZE*B_SIZE; ++i)
   {
     cout << weights[i] << "\t";
     if(i%8==0) cout << endl;
   }
+  */
  
-  DeepBeliefNetworkScheduler scheduler( &dbn, BATCH_SIZE, NUM_EXAMPLES_PER_BUFFER );
+  DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
+  // read examples from files into trainer
+  float * digit_images = trainer.get_example_buffer("digit image");
+  {
+    ifstream infile;
+    infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
+    unsigned int magicnumber, numimages, imagewidth, imageheight;
+    infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
+    infile.read((char *)&magicnumber + 2, 1);
+    infile.read((char *)&magicnumber + 1, 1);
+    infile.read((char *)&magicnumber + 0, 1);
+    infile.read((char *)&numimages + 3, 1);
+    infile.read((char *)&numimages + 2, 1);
+    infile.read((char *)&numimages + 1, 1);
+    infile.read((char *)&numimages + 0, 1);
+    infile.read((char *)&imagewidth + 3, 1);
+    infile.read((char *)&imagewidth + 2, 1);
+    infile.read((char *)&imagewidth + 1, 1);
+    infile.read((char *)&imagewidth + 0, 1);
+    infile.read((char *)&imageheight + 3, 1);
+    infile.read((char *)&imageheight + 2, 1);
+    infile.read((char *)&imageheight + 1, 1);
+    infile.read((char *)&imageheight + 0, 1);
+    assert( magicnumber == 2051 );
+    assert( numimages == 60000 );
+    assert( imagewidth == 28 );
+    assert( imageheight == 28 );
+    int data_size = numimages*imagewidth*imageheight;
+    unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
+    infile.read((char*)digit_images_uchar, data_size);
+    for( int z=0; z<data_size; ++z )
+      digit_images[z] = digit_images_uchar[z] / 255.0;
+    free(digit_images_uchar);
+  }
+  
+  DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES );
 
   Logger::log("starting dbn scheduler");
   thread scheduler_thread( ref(scheduler) );
 
-  sleep(60);
+  sleep(10);
   Logger::log("sending stop signal");
   scheduler.stop();
   scheduler_thread.join();
-  Logger::log("back in main...");
 
+  /*
   for(int i=0; i< A_SIZE*B_SIZE; ++i)
   {
     cout << weights[i] << "\t";
     if(i%8==0) cout << endl;
   }
+  */
 
 }
 #endif

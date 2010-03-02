@@ -17,6 +17,7 @@
 #include <cudamm/cuda.hpp>
 #include "tmp.h"
 #include "mersenne_twister.h"
+#include "deep_belief_network/trainer.h"
 #define WITH_LOGGING
 #include "logger.h"
 
@@ -206,19 +207,17 @@ public:
                 , int neurons_batch_size
                 )
                 {
-                  cout << "wth: " << neurons_size << ", " << neurons_batch_size << endl;
-                  cout << "pointer: " << neurons_ptr.pingpang() << endl;
                   float *tempneurons = (float*)std::malloc(sizeof(float) * neurons_batch_size);
                   // copy back from device
                   cuda::memcpy( tempneurons
-                              , neurons_ptr // vertex_ptr(v, buffer_index)
+                              , neurons_ptr
                               , sizeof(float) * neurons_batch_size
                               //, stream
                               );
                   stream.synchronize();
                   for(int ni=0; ni<neurons_size; ++ni)
                     cout << "Neuron " << ni << " = " << tempneurons[ni] << endl;
-                  delete tempneurons;
+                  free(tempneurons);
                 }
 
 
@@ -255,19 +254,19 @@ private:
 // enough random gaussian floats for batch_size*neurons_size(v) for each vertex other than the input one
 // + batch_size*neurons_size(ags_va) + batch_size*neurons_size(ags_vb) for the two AGS steps
 
-class DeepBeliefNetworkScheduler;
+class DBNScheduler;
 
-class DeepBeliefNetworkMemoryMapper : noncopyable
+class DBNMemoryMapper : noncopyable
 {
 public:
-  DeepBeliefNetworkMemoryMapper( DeepBeliefNetworkScheduler * dbn_scheduler_, DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
+  DBNMemoryMapper( DBNScheduler * dbn_scheduler_, DBN * dbn_, int batch_size_, int num_example_batches_ );
   void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr);
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
 
-  DevicePtr example_ptr( int buffer_index ) // FIXME - need per-vertex
-    { return (example_memory_ptr + (sizeof(float) * buffer_index * example_buffer_size)); }
+  DevicePtr example_ptr( Vertex v, int buffer_index )
+    { return example_memory_ptr_map[v][buffer_index]; }
 
   DevicePtr vertex_ptr( Vertex v, int buffer_index )
     { return (temporary_vertex_memory_ptr[v][buffer_index]); }
@@ -340,8 +339,6 @@ public:
       temporary_vertex_memory_ptr[current.first].push_back(p2);
     } 
   }
-
-
 
   inline void tmp_spaces_debug()
   {
@@ -452,6 +449,7 @@ private:
   map<Vertex,int>       temporary_vertex_memory_offsets;
   map<Edge,DevicePtr>   temporary_edge_memory_ptr;
   map<Vertex,vector<DevicePtr> > temporary_vertex_memory_ptr;
+  map<Vertex,vector<DevicePtr> > example_memory_ptr_map;
   list<pair<int,int> > temporary_memory_allocated;
   list<pair<int,int> > temporary_memory_free;
   DevicePtr             temporary_memory_ptr
@@ -473,10 +471,10 @@ private:
   int weight_matrix_size( Edge e );
 
 protected:
-  DeepBeliefNetwork * dbn;
-  DeepBeliefNetworkScheduler * dbn_scheduler;
+  DBN * dbn;
+  DBNScheduler * dbn_scheduler;
   int batch_size
-    , num_examples
+    , num_example_batches
     , example_buffer_size
     , temporary_buffer_size
     ;
@@ -490,16 +488,16 @@ protected:
  
 };
 
-class DeepBeliefNetworkScheduler : noncopyable
+class DBNScheduler : noncopyable
 {
 private:
   int batch_size;
-  int num_examples;
-  DeepBeliefNetwork * dbn;
-  auto_ptr<DeepBeliefNetworkMemoryMapper> dmemory;
+  int num_example_batches;
+  DBN * dbn;
+  DBNTrainer * trainer;
+  auto_ptr<DBNMemoryMapper> dmemory;
   volatile bool time_to_stop;
 
-  inline int choose_random_example() { return (rand() % num_examples); }
   void activate_from_example( Vertex v, int example_index );
   void loadMTGPU(const char*);
   void seedMTGPU(unsigned int);
@@ -508,7 +506,11 @@ private:
 
 public:
   explicit
-  DeepBeliefNetworkScheduler( DeepBeliefNetwork * dbn_, int batch_size_, int num_examples_ );
+  DBNScheduler( DBN * dbn_
+              , DBNTrainer * trainer_
+              , int batch_size_
+              , int num_example_batches_ 
+              );
 
   void stop() { time_to_stop = true; }
   void init_rng();
