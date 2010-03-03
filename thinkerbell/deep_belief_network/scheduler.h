@@ -22,8 +22,11 @@ private:
   int batch_size;
   int num_example_batches;
   DBN * dbn;
-  DBNTrainer * trainer;
   auto_ptr<DBNMemoryMapper> dmemory;
+  auto_ptr<DBNTrainer> trainer;
+
+  void (*new_examples_callback)(const std::string, float *);
+
   volatile bool time_to_stop;
 
   void activate_from_example( Vertex v, int example_index );
@@ -35,9 +38,10 @@ private:
 public:
   explicit
   DBNScheduler( DBN * dbn_
-              , DBNTrainer * trainer_
               , int batch_size_
-              , int num_example_batches_ 
+              , int num_example_batches_on_device_ 
+              , int num_example_batches_on_host_ 
+              , void (*new_examples_callback_)(const std::string, float *)
               );
 
   void stop() { time_to_stop = true; }

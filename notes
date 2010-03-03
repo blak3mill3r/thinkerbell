@@ -1,27 +1,5 @@
-ze bug:
- trainer needs page-locked memory
- therefore it needs to be initialized in the cuda context thread
- potential solution: pass a functor to Scheduler and it calls it when it needs more examples?
-
-
-
 biases_memory_layout_map could be simplified to map<Vertex,int>
 maybe weights_memory_layout_map too
-
-todo
-  biases
-    allocate temp memory for them very much like weights, 3 for training-vertices
-    allocate "permanent" memory for them much like weights, 1 space for non-training-vertices
-    place in the host class Neurons for them
-    kernels to adjust them
-    put them in the algorithm in DBNScheduler
-
-  organization of example data
-    needs to be randomized order on the host
-    host buffer size has to be at least device_buffer_size * 3
-    
-    
-
 
 little things
 name changes
@@ -31,6 +9,7 @@ move all the DBN* classes into a namespace deep_belief_network
 
 
 
+a picture of triple-buffering:
 
            |---|   |
            |   |   |

@@ -20,8 +20,8 @@ Rbm::~Rbm()
 
 void Rbm::randomize_weights()
 {
-  float scale = 10.0;
-  float bias = -scale*0.1;
+  float scale = 0.01;
+  float bias = -scale*0.5;
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
     weights[wi] = ( ( rand() / (float)RAND_MAX ) * scale ) + bias ;

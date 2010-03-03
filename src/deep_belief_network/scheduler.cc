@@ -3,16 +3,18 @@
 namespace thinkerbell {
 
 DBNScheduler::DBNScheduler( DBN * dbn_
-                          , DBNTrainer * trainer_
                           , int batch_size_
-                          , int num_example_batches_ 
+                          , int num_example_batches_on_device_ 
+                          , int num_example_batches_on_host_ 
+                          , void (*new_examples_callback_)(const std::string, float *)
                           )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
-  , trainer( trainer_ )
-  , num_example_batches( num_example_batches_ )
+  , num_example_batches( num_example_batches_on_device_ )
   , time_to_stop( false )
-  , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches ) )
+  , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
+  , trainer( new DBNTrainer( dbn, batch_size, num_example_batches_on_host_ ) )
+  , new_examples_callback(new_examples_callback_)
 {
 }
 
@@ -87,6 +89,11 @@ void DBNScheduler::operator()()
                                  , randoms_memory->ptr()
                                  , random_configs_memory->ptr()
                                  );
+
+  trainer->allocate_device_memory();
+
+  // get new examples:
+  (*new_examples_callback)( "digit image", trainer->get_example_buffer( "digit image" ) );
 
   // transfer weights to device, all 3 buffers
   // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory

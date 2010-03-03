@@ -31,6 +31,38 @@ using namespace thinkerbell;
 
 namespace po = boost::program_options;
 
+float digit_images[60000*28*28]; // the MNIST training image set, converted to floats in range 0-1
+float digit_labels[60000*1];
+
+// the examples callback
+void prepare_examples(const std::string neurons_name, float *example_buffer)
+{
+  if(neurons_name == "digit image")
+  {
+    cout << "prep examples!" << endl;
+    std::memcpy( example_buffer
+               , digit_images
+               , sizeof(digit_images)
+               );
+  }
+}
+
+void trainefy(DBN &dbn)
+{
+  // init scheduler
+  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples );
+  
+  cout << "--Training begins!" << endl;
+  
+  // start training
+  thread scheduler_thread( ref(scheduler) );
+  
+  sleep(10);
+  scheduler.stop();
+  scheduler_thread.join();
+  cout << "--Training ends!" << endl;
+}
+
 int main(int argc, char** argv)
 {
   string dbn_filename;
@@ -87,6 +119,40 @@ int main(int argc, char** argv)
     edge_ld = dbn.connect( vL, vD );
   }
 
+  // read examples from MNIST training set
+  // convert to floats
+  {
+    ifstream infile;
+    infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
+    unsigned int magicnumber, numimages, imagewidth, imageheight;
+    infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
+    infile.read((char *)&magicnumber + 2, 1);
+    infile.read((char *)&magicnumber + 1, 1);
+    infile.read((char *)&magicnumber + 0, 1);
+    infile.read((char *)&numimages + 3, 1);
+    infile.read((char *)&numimages + 2, 1);
+    infile.read((char *)&numimages + 1, 1);
+    infile.read((char *)&numimages + 0, 1);
+    infile.read((char *)&imagewidth + 3, 1);
+    infile.read((char *)&imagewidth + 2, 1);
+    infile.read((char *)&imagewidth + 1, 1);
+    infile.read((char *)&imagewidth + 0, 1);
+    infile.read((char *)&imageheight + 3, 1);
+    infile.read((char *)&imageheight + 2, 1);
+    infile.read((char *)&imageheight + 1, 1);
+    infile.read((char *)&imageheight + 0, 1);
+    assert( magicnumber == 2051 );
+    assert( numimages == 60000 );
+    assert( imagewidth == 28 );
+    assert( imageheight == 28 );
+    int data_size = numimages*imagewidth*imageheight;
+    unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
+    infile.read((char*)digit_images_uchar, data_size);
+    for( int z=0; z<data_size; ++z )
+      digit_images[z] = digit_images_uchar[z] / 255.0;
+    free(digit_images_uchar);
+  }
+
   // randomize the weights we are about to train
   dbn.m_graph[edge_ab].rbm->randomize_weights();
 
@@ -94,60 +160,8 @@ int main(int argc, char** argv)
   dbn.unmask( vA );
   dbn.unmask( vB );
 
-  // init trainer
-  DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
-
   go_again:
-  {
-    // init scheduler
-    DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
-    trainer.allocate_device_memory();
-
-    // read examples from MNIST training set
-    // convert to floats
-    float * digit_images = trainer.get_example_buffer("digit image");
-    {
-      ifstream infile;
-      infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
-      unsigned int magicnumber, numimages, imagewidth, imageheight;
-      infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
-      infile.read((char *)&magicnumber + 2, 1);
-      infile.read((char *)&magicnumber + 1, 1);
-      infile.read((char *)&magicnumber + 0, 1);
-      infile.read((char *)&numimages + 3, 1);
-      infile.read((char *)&numimages + 2, 1);
-      infile.read((char *)&numimages + 1, 1);
-      infile.read((char *)&numimages + 0, 1);
-      infile.read((char *)&imagewidth + 3, 1);
-      infile.read((char *)&imagewidth + 2, 1);
-      infile.read((char *)&imagewidth + 1, 1);
-      infile.read((char *)&imagewidth + 0, 1);
-      infile.read((char *)&imageheight + 3, 1);
-      infile.read((char *)&imageheight + 2, 1);
-      infile.read((char *)&imageheight + 1, 1);
-      infile.read((char *)&imageheight + 0, 1);
-      assert( magicnumber == 2051 );
-      assert( numimages == 60000 );
-      assert( imagewidth == 28 );
-      assert( imageheight == 28 );
-      int data_size = numimages*imagewidth*imageheight;
-      unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
-      infile.read((char*)digit_images_uchar, data_size);
-      for( int z=0; z<data_size; ++z )
-        digit_images[z] = digit_images_uchar[z] / 255.0;
-      free(digit_images_uchar);
-    }
-  
-    cout << "Training begins!" << endl;
-  
-    // start training
-    thread scheduler_thread( ref(scheduler) );
-  
-    sleep(1);
-    scheduler.stop();
-    scheduler_thread.join();
-    cout << "Training ends!" << endl;
-  }
+  trainefy(dbn);
   
   // debug output, spit out the total of the biases of vB
   float *biases = dbn.m_graph[vB].neurons->biases;
@@ -167,6 +181,7 @@ int main(int argc, char** argv)
   {
     if(weights[jj]>0) numposweights++;
     else numnegweights++;
+    if(weights[jj]!=weights[jj]) cout << "weight " << jj << " is NaN ! " << endl;
     weights_avg += weights[jj];
   }
   weights_avg /= numweights;
