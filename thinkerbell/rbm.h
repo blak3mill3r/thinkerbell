@@ -27,9 +27,7 @@ class Rbm {
 };
 
 } // namespace thinkerbell
-//FIXME why aren't m_A and m_B serialized? as below...
 
-/*
 namespace boost { namespace serialization {
 
 using thinkerbell::Rbm;
@@ -55,6 +53,5 @@ inline void load_construct_data( Archive & ar, Rbm * t, const unsigned int file_
 }
 
 }} // namespace boost::serialization 
-*/
 
 #endif

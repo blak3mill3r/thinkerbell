@@ -1,3 +1,6 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 #include <boost/thread/condition.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
@@ -5,6 +8,7 @@
 #include <boost/thread/locks.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
 #include <boost/program_options.hpp>
 #include <cudamm/cuda.hpp>
 #include <thinkerbell/deep_belief_network.h>
@@ -30,12 +34,19 @@ namespace po = boost::program_options;
 int main(int argc, char** argv)
 {
   string dbn_filename;
+  DBN dbn;
+  Vertex vA, vB, vC, vD, vL;
+  Edge edge_ab
+     , edge_bc
+     , edge_cd
+     , edge_ld
+     ;
 
   po::options_description desc("Usage");
   desc.add_options()
       ("help", "output not-very-helpful text")
       ("dbn", po::value<string>(&dbn_filename)->default_value("handwritten_digits_example.dbn"), "path to dbn file")
-  ;
+      ;
   
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -46,20 +57,35 @@ int main(int argc, char** argv)
       return 1;
   }
   
-  // construct the DBN
-  DBN dbn;
-  Vertex vA = dbn.add_neurons( A_SIZE, "digit image" )
-       , vB = dbn.add_neurons( B_SIZE, "feature detector 1" )
-       , vC = dbn.add_neurons( C_SIZE, "feature detector 2" )
-       , vD = dbn.add_neurons( D_SIZE, "feature detector 3" )
-       , vL = dbn.add_neurons( L_SIZE, "digit labels" )
-       ;
-
-  Edge edge_ab = dbn.connect( vA, vB )
-     , edge_bc = dbn.connect( vB, vC )
-     , edge_cd = dbn.connect( vC, vD )
-     , edge_ld = dbn.connect( vL, vD )
-     ;
+  // load the DBN file, or construct the DBN if file not found
+  try
+  {
+    std::ifstream ifs(dbn_filename.c_str(), ios::in);
+    boost::archive::binary_iarchive ia(ifs);
+    ia >> dbn;
+    vA = dbn.find_neurons_by_name("digit image");
+    vB = dbn.find_neurons_by_name("feature detector 1");
+    vC = dbn.find_neurons_by_name("feature detector 2");
+    vD = dbn.find_neurons_by_name("feature detector 3");
+    vL = dbn.find_neurons_by_name("digit labels");
+    edge_ab = dbn.out_edge(vA);
+    edge_bc = dbn.out_edge(vB);
+    edge_cd = dbn.out_edge(vC);
+    edge_ld = dbn.out_edge(vL);
+  }
+  catch(boost::archive::archive_exception e)
+  {
+    cout << "File \"" << dbn_filename << "\" not found, starting from scratch." << endl;
+    vA = dbn.add_neurons( A_SIZE, "digit image" );
+    vB = dbn.add_neurons( B_SIZE, "feature detector 1" );
+    vC = dbn.add_neurons( C_SIZE, "feature detector 2" );
+    vD = dbn.add_neurons( D_SIZE, "feature detector 3" );
+    vL = dbn.add_neurons( L_SIZE, "digit labels" );
+    edge_ab = dbn.connect( vA, vB );
+    edge_bc = dbn.connect( vB, vC );
+    edge_cd = dbn.connect( vC, vD );
+    edge_ld = dbn.connect( vL, vD );
+  }
 
   // randomize the weights we are about to train
   dbn.m_graph[edge_ab].rbm->randomize_weights();
@@ -110,10 +136,19 @@ int main(int argc, char** argv)
   DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
 
   // start training
+  /*
   thread scheduler_thread( ref(scheduler) );
 
   sleep(10);
   scheduler.stop();
   scheduler_thread.join();
+  */
+
+  // save to file
+  {
+    std::ofstream ofs(dbn_filename.c_str());
+    boost::archive::binary_oarchive oa(ofs);
+    oa << dbn;
+  }
 
 }

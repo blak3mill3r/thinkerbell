@@ -112,6 +112,21 @@ class DBN
     std::string neurons_name( Vertex v )
       { return (m_graph)[v].name; }
 
+    Edge out_edge(Vertex v)
+    {
+      graph_traits< DBNGraph >::out_edge_iterator out_i, out_end; 
+      tie(out_i, out_end) = out_edges( v, m_graph );
+      return *out_i;
+    }
+
+    Vertex find_neurons_by_name(const std::string n)
+    {
+      BOOST_FOREACH( Vertex v, make_pair(all_vertices_begin(),all_vertices_end()) )
+      {
+        if(m_graph[v].name == n) return v;
+      }
+    }
+
     void mask( Vertex v );   //FIXME I'm not sure mask/unmask is the best name
     void unmask( Vertex v );
     bool is_masked( Vertex v );

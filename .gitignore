@@ -1,3 +1,4 @@
+*.dbn
 *.o
 *.os
 *.cubin
