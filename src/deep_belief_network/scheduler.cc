@@ -117,12 +117,6 @@ void DBNScheduler::operator()()
   // start with full buffer of randoms
   ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
 
-  // transfer examples into buffers A, B and C
-  BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
-  {
-    //FIXME
-  }
-
   //////////////////////////////////////
   // get the triple buffering rolling...
   //////////////////////////////////////
@@ -140,10 +134,6 @@ void DBNScheduler::operator()()
     int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
     int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
     int bufc = ((i+2)%3); // bufc weights will be written to because it will be bufc next iteration and will be used for activation steps
-// next round
-// c -> a
-// a -> b
-// b -> c
     int streami = i%2;
 
     int example_offset = trainer->get_random_example_offset();
@@ -156,6 +146,7 @@ void DBNScheduler::operator()()
       cuda::memcpy( dmemory->example_ptr( inputv, bufa )
                   , trainer->get_example_batch( dbn->neurons_name(inputv), example_offset )
                   , sizeof(float) * dmemory->neurons_batch_size(inputv)
+                  , *streams[streami]
                   );
     }
 
@@ -168,12 +159,12 @@ void DBNScheduler::operator()()
     {
       if(dbn->is_input_vertex(v))
       { // v's activation amounts to setting neuron energies from a training example
-        //cout << "activating vertex from sample: " << training_example << endl;
         ops.activate_input_vertex( dbn->neurons_size(v)
                                  , batch_size
                                  , (*streams[streami])
                                  , dmemory->example_ptr(v, bufa)
                                  , dmemory->neurons_ptr(v, bufa)
+                                 , dmemory->biases_ptr(v, bufa)
                                  );
       }
       else
@@ -203,6 +194,7 @@ void DBNScheduler::operator()()
         {
           streams[0]->synchronize();  
           streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+          ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
           random_offset = 0;
         }
   
@@ -212,6 +204,7 @@ void DBNScheduler::operator()()
                            , (*streams[streami])
                            , dmemory->neurons_ptr(v, bufa)
                            , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
+                           , dmemory->biases_ptr(v, bufa)
                            );
   
         //cout << "Debuggify vertex " << dbn->neurons_name(v) << endl;
@@ -290,6 +283,7 @@ void DBNScheduler::operator()()
       {
         streams[0]->synchronize();  
         streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+        ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
         random_offset = 0;
       }
 
@@ -298,6 +292,7 @@ void DBNScheduler::operator()()
                          , (*streams[streami])
                          , dmemory->neurons_ptr(sourcev, bufa)
                          , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(sourcev))))
+                         , dmemory->biases_ptr(sourcev, bufa)
                          );
     }
 
@@ -323,6 +318,7 @@ void DBNScheduler::operator()()
     {
       streams[0]->synchronize();  
       streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+      ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
       random_offset = 0;
     }
 
@@ -331,6 +327,7 @@ void DBNScheduler::operator()()
                        , (*streams[streami])
                        , dmemory->neurons_ptr(top, bufa)
                        , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(top))))
+                       , dmemory->biases_ptr(top, bufa)
                        );
 
     // for each in-edge of the top vertex, do a negative weight adjustment

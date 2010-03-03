@@ -52,6 +52,7 @@ public:
                             , const Stream &stream
                             , DevicePtr example
                             , DevicePtr neurons
+                            , DevicePtr biases
                             )
                             {
                               activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
@@ -61,8 +62,9 @@ public:
                                                  , example          // copy from example
                                                  , neurons          // write to neurons
                                                  , example          // ignored ... it's illegal to pass bad pointers to kernels, so we are passing example
+                                                 , biases
                                                  , neurons_size
-                                                 , false            // not a binary activation, i.e. the values written will be the sigmoid(energies)
+                                                 , 0            // not a binary activation, i.e. the values written will be the sigmoid(energies)
                                                  );
                             
                             }
@@ -72,6 +74,7 @@ public:
                       , const Stream &stream
                       , DevicePtr neurons
                       , DevicePtr randoms
+                      , DevicePtr biases
                       )
                       {
                         activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
@@ -81,8 +84,9 @@ public:
                                            , neurons          // read from neurons
                                            , neurons          // write to neurons
                                            , randoms
+                                           , biases
                                            , neurons_size
-                                           , true// a binary activation, i.e. the values written will be 0 or 1
+                                           , 1                // binary activation
                                            );
                       
                       }
@@ -154,7 +158,7 @@ public:
                                                        , weights_current
                                                        , learning_rate
                                                        , source_neurons_size
-                                                       , false
+                                                       , 0
                                                        );
                                  }
 
@@ -178,7 +182,7 @@ public:
                                                        , weights_to_modify
                                                        , learning_rate
                                                        , source_neurons_size
-                                                       , true
+                                                       , 1
                                                        );
                                  }
 
@@ -201,7 +205,7 @@ public:
                                                    , neurons_size
                                                    , batch_size
                                                    , learning_rate
-                                                   , false
+                                                   , 0
                                                    );
                                }
 
@@ -223,7 +227,7 @@ public:
                                                    , neurons_size
                                                    , batch_size
                                                    , learning_rate
-                                                   , true
+                                                   , 1
                                                    );
                                }
 

@@ -204,7 +204,7 @@ private:
         range_to_free = current;
       }
     }
-    if(!found) throw("baderror");
+    if(!found) throw(69);
     //cout << "memory range to free = " << range_to_free.first << " through " << range_to_free.second << endl;
     list<pair<int,int> >::iterator foundi = 
     find( temporary_memory_allocated.begin()

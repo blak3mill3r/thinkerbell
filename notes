@@ -1,3 +1,10 @@
+ze bug:
+ trainer needs page-locked memory
+ therefore it needs to be initialized in the cuda context thread
+ potential solution: pass a functor to Scheduler and it calls it when it needs more examples?
+
+
+
 biases_memory_layout_map could be simplified to map<Vertex,int>
 maybe weights_memory_layout_map too
 

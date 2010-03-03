@@ -97,52 +97,92 @@ int main(int argc, char** argv)
   // init trainer
   DBNTrainer trainer( &dbn, BATCH_SIZE, NUM_BATCHES_ON_HOST );
 
-  // read examples from MNIST training set
-  // convert to floats
-  float * digit_images = trainer.get_example_buffer("digit image");
+  go_again:
   {
-    ifstream infile;
-    infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
-    unsigned int magicnumber, numimages, imagewidth, imageheight;
-    infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
-    infile.read((char *)&magicnumber + 2, 1);
-    infile.read((char *)&magicnumber + 1, 1);
-    infile.read((char *)&magicnumber + 0, 1);
-    infile.read((char *)&numimages + 3, 1);
-    infile.read((char *)&numimages + 2, 1);
-    infile.read((char *)&numimages + 1, 1);
-    infile.read((char *)&numimages + 0, 1);
-    infile.read((char *)&imagewidth + 3, 1);
-    infile.read((char *)&imagewidth + 2, 1);
-    infile.read((char *)&imagewidth + 1, 1);
-    infile.read((char *)&imagewidth + 0, 1);
-    infile.read((char *)&imageheight + 3, 1);
-    infile.read((char *)&imageheight + 2, 1);
-    infile.read((char *)&imageheight + 1, 1);
-    infile.read((char *)&imageheight + 0, 1);
-    assert( magicnumber == 2051 );
-    assert( numimages == 60000 );
-    assert( imagewidth == 28 );
-    assert( imageheight == 28 );
-    int data_size = numimages*imagewidth*imageheight;
-    unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
-    infile.read((char*)digit_images_uchar, data_size);
-    for( int z=0; z<data_size; ++z )
-      digit_images[z] = digit_images_uchar[z] / 255.0;
-    free(digit_images_uchar);
+    // init scheduler
+    DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
+    trainer.allocate_device_memory();
+
+    // read examples from MNIST training set
+    // convert to floats
+    float * digit_images = trainer.get_example_buffer("digit image");
+    {
+      ifstream infile;
+      infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
+      unsigned int magicnumber, numimages, imagewidth, imageheight;
+      infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
+      infile.read((char *)&magicnumber + 2, 1);
+      infile.read((char *)&magicnumber + 1, 1);
+      infile.read((char *)&magicnumber + 0, 1);
+      infile.read((char *)&numimages + 3, 1);
+      infile.read((char *)&numimages + 2, 1);
+      infile.read((char *)&numimages + 1, 1);
+      infile.read((char *)&numimages + 0, 1);
+      infile.read((char *)&imagewidth + 3, 1);
+      infile.read((char *)&imagewidth + 2, 1);
+      infile.read((char *)&imagewidth + 1, 1);
+      infile.read((char *)&imagewidth + 0, 1);
+      infile.read((char *)&imageheight + 3, 1);
+      infile.read((char *)&imageheight + 2, 1);
+      infile.read((char *)&imageheight + 1, 1);
+      infile.read((char *)&imageheight + 0, 1);
+      assert( magicnumber == 2051 );
+      assert( numimages == 60000 );
+      assert( imagewidth == 28 );
+      assert( imageheight == 28 );
+      int data_size = numimages*imagewidth*imageheight;
+      unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
+      infile.read((char*)digit_images_uchar, data_size);
+      for( int z=0; z<data_size; ++z )
+        digit_images[z] = digit_images_uchar[z] / 255.0;
+      free(digit_images_uchar);
+    }
+  
+    cout << "Training begins!" << endl;
+  
+    // start training
+    thread scheduler_thread( ref(scheduler) );
+  
+    sleep(1);
+    scheduler.stop();
+    scheduler_thread.join();
+    cout << "Training ends!" << endl;
   }
   
-  // init scheduler
-  DBNScheduler scheduler( &dbn, &trainer, BATCH_SIZE, NUM_BATCHES_ON_DEVICE );
+  // debug output, spit out the total of the biases of vB
+  float *biases = dbn.m_graph[vB].neurons->biases;
+  int numbiases = dbn.neurons_size(vB);
+  float totalbiases = 0.0;
+  for(int kk=0;kk<numbiases;++kk)
+    totalbiases += biases[kk];
 
-  // start training
-  /*
-  thread scheduler_thread( ref(scheduler) );
+  cout << "total of biases in " << dbn.neurons_name(vB) << " = " << totalbiases << endl;;
 
-  sleep(10);
-  scheduler.stop();
-  scheduler_thread.join();
-  */
+  float *weights = dbn.m_graph[edge_ab].rbm->m_W.weights();
+  float weights_avg = 0.0;
+  int numweights = dbn.neurons_size(vA)*dbn.neurons_size(vB);
+  int numposweights=0;
+  int numnegweights=0;
+  for(int jj=0;jj<numweights;++jj)
+  {
+    if(weights[jj]>0) numposweights++;
+    else numnegweights++;
+    weights_avg += weights[jj];
+  }
+  weights_avg /= numweights;
+  cout << "weights average: "
+       << weights_avg
+       << "\nnum +: "
+       << numposweights
+       << "\nnum -: "
+       << numnegweights
+       << endl;
+
+  cout << "go again? 0 to stop" << endl;
+  int go_again;
+  cin >> go_again;
+  if(go_again != 0)
+    goto go_again;
 
   // save to file
   {

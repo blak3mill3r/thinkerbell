@@ -65,13 +65,10 @@ bool DBN::is_in_training( Vertex v )
   return is_training_vertex;
 }
 
-// an Edge is "in training" iff it's target has no out edges
+// an Edge is "in training" iff it's target is the top vertex
 bool DBN::is_in_training( Edge e )
 {
-  Vertex v = target( e, m_graph );
-  graph_traits< DBNGraph >::out_edge_iterator out_i, out_end;
-  tie(out_i, out_end) = out_edges( v, m_graph );
-  return ((out_end - out_i)==0);
+  return is_top_vertex( target( e, m_graph ) );
 }
 
 

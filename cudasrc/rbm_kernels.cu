@@ -18,77 +18,43 @@ mmul( float* C
     , int wB
     )
 {
-    // Block index
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
-    // Thread index
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
-
-    // Index of the first sub-matrix of A processed by the block
     int aBegin = wA * BLOCK_SIZE * by;
 
-    // Index of the last sub-matrix of A processed by the block
     int aEnd   = aBegin + wA - 1;
 
-    // Step size used to iterate through the sub-matrices of A
     int aStep  = BLOCK_SIZE;
 
-    // Index of the first sub-matrix of B processed by the block
     int bBegin = BLOCK_SIZE * bx;
 
-    // Step size used to iterate through the sub-matrices of B
     int bStep  = BLOCK_SIZE * wB;
 
     // index in C (and D)
     int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
 
-    // Csub is used to store the element of the block sub-matrix
-    // that is computed by the thread
     float Csub = use_zero_instead_of_D ? 0 : D[c + wB * ty + tx];
 
-    // Loop over all the sub-matrices of A and B
-    // required to compute the block sub-matrix
     for (int a = aBegin, b = bBegin;
              a <= aEnd;
              a += aStep, b += bStep) {
 
-        // Declaration of the shared memory array As used to
-        // store the sub-matrix of A
         __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
-
-        // Declaration of the shared memory array Bs used to
-        // store the sub-matrix of B
         __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
 
-        // Load the matrices from device memory
-        // to shared memory; each thread loads
-        // one element of each matrix
         As[ty][tx] = A[a + wA * ty + tx];
         Bs[ty][tx] = B[b + wB * ty + tx];
 
-        // Synchronize to make sure the matrices are loaded
         __syncthreads();
 
-        // Multiply the two matrices together;
-        // each thread computes one element
-        // of the block sub-matrix
         for (int k = 0; k < BLOCK_SIZE; ++k)
           Csub += As[ty][k] * Bs[k][tx];
 
-        // Synchronize to make sure that the preceding
-        // computation is done before loading two new
-        // sub-matrices of A and B in the next iteration
         __syncthreads();
     }
 
-    // Write the block sub-matrix to device memory;
-    // each thread writes one element
     C[c + wB * ty + tx] = Csub;
 }
-
-
 
 ////////////////////////////////////////////////////
 // Matrix multiplication which transposes B operand
@@ -156,6 +122,7 @@ __global__ void
 activate_neurons( float* energies               // read from
                 , float* activations            // write to
                 , float* randoms
+                , float* biases
                 , int neurons_size
                 , int binary )
 {
@@ -163,8 +130,8 @@ activate_neurons( float* energies               // read from
   int x = BLOCK_SIZE*bx + tx;
   int y = BLOCK_SIZE*by + ty;
   int i = y*neurons_size + x;
+  float energy = sigmoid(energies[i]+biases[i]);
   float random = randoms[i];
-  float energy = sigmoid(energies[i]);
   if(binary)
     activations[i] = ( energy > random ) ? 1.0 : 0.0 ;
   else
