@@ -167,10 +167,20 @@ int main(int argc, char** argv)
   float *biases = dbn.m_graph[vB].neurons->biases;
   int numbiases = dbn.neurons_size(vB);
   float totalbiases = 0.0;
-  for(int kk=0;kk<numbiases;++kk)
-    totalbiases += biases[kk];
+  int numposbiases = 0;
+  int numnegbiases = 0;
 
-  cout << "total of biases in " << dbn.neurons_name(vB) << " = " << totalbiases << endl;;
+  for(int kk=0;kk<numbiases;++kk)
+  {
+    if(biases[kk]>0) numposbiases++;
+    else numnegbiases++;
+    totalbiases += biases[kk];
+  }
+
+  cout << "total of biases in " << dbn.neurons_name(vB) << " = " << totalbiases << endl;
+  cout << "numnegbiases = " << numnegbiases
+       << "\nnumposbiases = " << numposbiases
+       << endl;
 
   float *weights = dbn.m_graph[edge_ab].rbm->m_W.weights();
   float weights_avg = 0.0;
