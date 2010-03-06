@@ -39,7 +39,7 @@ public:
       CUresult cret;
 	    cret = cuMemHostAlloc( (void**)&ptr
                            , sizeof(float) * example_batch_size[name] * num_batches
-                           , 0 
+                           , 0  // flags
                            );
       if(cret!=CUDA_SUCCESS) 
       {
@@ -56,7 +56,6 @@ public:
     BOOST_FOREACH( b, example_buffer )
     {
       cuMemFreeHost( b.second );
-      //free( b.second );
     }
   }
 
@@ -64,7 +63,7 @@ public:
     { return ( rand() % num_batches ); }
 
   float * get_example_batch(const std::string name, int offset)
-    { return (example_buffer[name] + offset * example_batch_size[name]); }
+    { return (example_buffer[name] + (offset * example_batch_size[name])); }
 
   float * get_example_buffer( const std::string name )
     { return example_buffer[name]; }

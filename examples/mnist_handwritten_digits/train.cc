@@ -39,11 +39,12 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
 {
   if(neurons_name == "digit image")
   {
-    cout << "prep examples!" << endl;
+    cout << "prep examples..." ;
     std::memcpy( example_buffer
                , digit_images
                , sizeof(digit_images)
                );
+    cout << "done! " << endl ;
   }
 }
 
@@ -57,7 +58,7 @@ void trainefy(DBN &dbn)
   // start training
   thread scheduler_thread( ref(scheduler) );
   
-  sleep(10);
+  sleep(15);
   scheduler.stop();
   scheduler_thread.join();
   cout << "--Training ends!" << endl;
@@ -100,6 +101,7 @@ int main(int argc, char** argv)
     vC = dbn.find_neurons_by_name("feature detector 2");
     vD = dbn.find_neurons_by_name("feature detector 3");
     vL = dbn.find_neurons_by_name("digit labels");
+    cout << "found neurons by name and digit image size is " << dbn.neurons_size(vA);
     edge_ab = dbn.out_edge(vA);
     edge_bc = dbn.out_edge(vB);
     edge_cd = dbn.out_edge(vC);
@@ -187,20 +189,23 @@ int main(int argc, char** argv)
   int numweights = dbn.neurons_size(vA)*dbn.neurons_size(vB);
   int numposweights=0;
   int numnegweights=0;
+  int numnanweights=0;
+  int numzeroweights=0;
   for(int jj=0;jj<numweights;++jj)
   {
+    if(weights[jj]==0) numzeroweights++;
     if(weights[jj]>0) numposweights++;
     else numnegweights++;
-    if(weights[jj]!=weights[jj]) cout << "weight " << jj << " is NaN ! " << endl;
+    if(weights[jj]!=weights[jj]) numnanweights++;
     weights_avg += weights[jj];
   }
   weights_avg /= numweights;
-  cout << "weights average: "
-       << weights_avg
-       << "\nnum +: "
-       << numposweights
-       << "\nnum -: "
-       << numnegweights
+  cout << "\nweights average: " << weights_avg
+       << "\nnum +: "           << numposweights
+       << "\nnum -: "           << numnegweights
+       << "\nnum NaN: "         << numnanweights
+       << "\nnum 0: "           << numzeroweights
+       << "\nnum total: "       << numweights
        << endl;
 
   cout << "go again? 0 to stop" << endl;

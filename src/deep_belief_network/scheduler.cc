@@ -21,7 +21,13 @@ DBNScheduler::DBNScheduler( DBN * dbn_
 void DBNScheduler::init_rng()
 {
   loadMTGPU("data/MersenneTwister.dat");
-  seedMTGPU(777);
+}
+
+void DBNScheduler::seed_rng()
+{
+  unsigned int r = rand();
+  cout << "reseeding with " << r << endl;
+  seedMTGPU(r);
 }
 
 //Load twister configurations
@@ -56,6 +62,13 @@ void DBNScheduler::seedMTGPU(unsigned int seed){
     free(MT);
 }
 
+
+void DBNScheduler::generate_more_randoms( const Stream &stream, DbnOperations &ops )
+{
+  seed_rng();
+  ops.generate_randoms( stream, dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+}
+
 void DBNScheduler::operator()()
 {
   // cuda context is good for the scope of this object:
@@ -73,6 +86,22 @@ void DBNScheduler::operator()()
 
   // weight adjustments are scaled by this factor
   float learning_rate = 0.01;
+  cout << "about to allocate_device_memory()\n"
+ << "dmemory->weights_memory_size()       "
+ << dmemory->weights_memory_size()       
+ << "dmemory->biases_memory_size()        "
+ << dmemory->biases_memory_size()        
+ << "dmemory->example_memory_size()       "
+ << dmemory->example_memory_size()       
+ << "dmemory->temporary_memory_size()     "
+ << dmemory->temporary_memory_size()     
+ << "dmemory->randoms_memory_size()       "
+ << dmemory->randoms_memory_size()       
+ << "dmemory->random_configs_memory_size()"
+ << dmemory->random_configs_memory_size()
+  << endl;
+
+
 
   // allocate device memory for the algorithm
   auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
@@ -92,7 +121,7 @@ void DBNScheduler::operator()()
 
   trainer->allocate_device_memory();
 
-  // get new examples:
+  // get new digit image examples into the trainer's buffer (host memory):
   (*new_examples_callback)( "digit image", trainer->get_example_buffer( "digit image" ) );
 
   // transfer weights to device, all 3 buffers
@@ -115,6 +144,7 @@ void DBNScheduler::operator()()
 
   // init the rng
   init_rng();
+  seed_rng();
 
   // 2 streams:
   vector<Stream *> streams;
@@ -122,7 +152,8 @@ void DBNScheduler::operator()()
   streams.push_back(new Stream());
 
   // start with full buffer of randoms
-  ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+  generate_more_randoms(*streams[0], ops);
+  streams[0]->synchronize();
 
   //////////////////////////////////////
   // get the triple buffering rolling...
@@ -137,6 +168,7 @@ void DBNScheduler::operator()()
   while(true)
   for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
   {
+    cout << "." ;
     // this gives us three phases
     int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
     int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
@@ -147,7 +179,7 @@ void DBNScheduler::operator()()
 
     // transfer a batch of examples into A buffer
     // FIXME OPTIMIZE do this every nth time or something... space them out
-    // ignoring NUM_BATCHES, FIXME when NUM_BATCHES != 1
+    // ignoring NUM_BATCHES_ON_DEVICE, FIXME when NUM_BATCHES_ON_DEVICE != 1
     BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
     {
       cuda::memcpy( dmemory->example_ptr( inputv, bufa )
@@ -201,7 +233,8 @@ void DBNScheduler::operator()()
         {
           streams[0]->synchronize();  
           streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
-          ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+          generate_more_randoms( *streams[streami], ops );
+          streams[streami]->synchronize();
           random_offset = 0;
         }
   
@@ -246,7 +279,7 @@ void DBNScheduler::operator()()
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , dmemory->neurons_ptr(top, bufa)
                                     , learning_rate
-                                    );
+                                    ); 
       // read biases from bufb
       // adjust them based on sourcev in bufa
       // write them to bufc
@@ -290,7 +323,8 @@ void DBNScheduler::operator()()
       {
         streams[0]->synchronize();  
         streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
-        ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+        generate_more_randoms( *streams[streami], ops );
+        streams[streami]->synchronize();
         random_offset = 0;
       }
 
@@ -325,7 +359,8 @@ void DBNScheduler::operator()()
     {
       streams[0]->synchronize();  
       streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
-      ops.generate_randoms( *streams[0], dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+      generate_more_randoms( *streams[streami], ops );
+      streams[streami]->synchronize();
       random_offset = 0;
     }
 
@@ -342,7 +377,7 @@ void DBNScheduler::operator()()
     BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
     {
       Vertex sourcev = source( e, dbn->m_graph );
-      ops.negative_weight_adjustment( *streams[streami]
+      /*ops.negative_weight_adjustment( *streams[streami]
                                     , dbn->neurons_size(top)
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
@@ -350,7 +385,7 @@ void DBNScheduler::operator()()
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , dmemory->neurons_ptr(top, bufa)
                                     , learning_rate
-                                    );
+                                    );  */
       // read biases from bufb
       // adjust them based on sourcev in bufa
       // write them to bufc

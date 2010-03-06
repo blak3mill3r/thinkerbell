@@ -8,40 +8,6 @@
 __device__ static mt_struct_stripped ds_MT[MT_RNG_COUNT];
 static mt_struct_stripped h_MT[MT_RNG_COUNT];
 
-/*
-//Load twister configurations
-void loadMTGPU(const char *fname){
-    FILE *fd = fopen(fname, "rb");
-    if(!fd){
-        printf("initMTGPU(): failed to open %s\n", fname);
-        printf("TEST FAILED\n");
-        exit(0);
-    }
-    if( !fread(h_MT, sizeof(h_MT), 1, fd) ){
-        printf("initMTGPU(): failed to load %s\n", fname);
-        printf("TEST FAILED\n");
-        exit(0);
-    }
-    fclose(fd);
-}
-
-//Initialize/seed twister for current GPU context
-void seedMTGPU(unsigned int seed){
-    int i;
-    //Need to be thread-safe
-    mt_struct_stripped *MT = (mt_struct_stripped *)malloc(MT_RNG_COUNT * sizeof(mt_struct_stripped));
-
-    for(i = 0; i < MT_RNG_COUNT; i++){
-        MT[i]      = h_MT[i];
-        MT[i].seed = seed;
-    }
-    CUDA_SAFE_CALL( cudaMemcpyToSymbol(ds_MT, MT, sizeof(h_MT)) );
-
-    free(MT);
-}
-*/
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // Write MT_RNG_COUNT vertical lanes of NPerRng random numbers to *d_Random.
 // For coalesced global writes MT_RNG_COUNT should be a multiple of warp size.

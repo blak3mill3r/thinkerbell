@@ -39,6 +39,7 @@ struct VertexProperties
     void serialize( Archive & ar, const unsigned int version )
     {
       ar & name;
+      ar & mask;
       ar & neurons;
     }
 };

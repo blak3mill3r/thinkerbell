@@ -187,7 +187,6 @@ weight_adjustment( float* C
 
         __syncthreads();
 
-
         if(negate)
           for (int k = 0; k < BLOCK_SIZE; ++k)
             Csub -= As[ty][k] * Bs[k][tx] * learning_rate;

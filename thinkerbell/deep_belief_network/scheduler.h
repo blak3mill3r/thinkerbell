@@ -46,6 +46,8 @@ public:
 
   void stop() { time_to_stop = true; }
   void init_rng();
+  void seed_rng();
+  void generate_more_randoms( const Stream &stream, DbnOperations &ops );
 
   void operator()();
 
