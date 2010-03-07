@@ -21,9 +21,10 @@ class DBNScheduler : noncopyable
 private:
   int batch_size;
   int num_example_batches;
+  int num_example_batches_on_host;
   DBN * dbn;
   auto_ptr<DBNMemoryMapper> dmemory;
-  auto_ptr<DBNTrainer> trainer;
+  //auto_ptr<DBNTrainer> trainer;
 
   void (*new_examples_callback)(const std::string, float *);
 

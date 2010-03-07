@@ -138,6 +138,67 @@ activate_neurons( float* energies               // read from
     activations[i] = energy;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//! Matrix multiplication on the device: C = A-transposed * B
+//! wAt is A's height (also known as A-transposed's width) and wB is B's width
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
+__global__ void
+weight_adjustment( float* C
+                 , float* A
+                 , float* B
+                 , float* D
+                 , int wAt
+                 , int wB
+                 , float learning_rate
+                 , int negate
+                 )
+{
+    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+
+    int wA = gridDim.y * BLOCK_SIZE;
+
+    int aBegin = BLOCK_SIZE * by;
+
+    int aStep  = BLOCK_SIZE * wA;
+
+    int aEnd   = aBegin + (wA * wAt) - aStep;
+
+    int bBegin = BLOCK_SIZE * bx;
+
+    int bStep  = BLOCK_SIZE * wB;
+
+    int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+
+    float Csub = D[c + wB * ty + tx];
+
+    for (int a = aBegin, b = bBegin;
+             a <= aEnd;
+             a += aStep, b += bStep) {
+
+        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+
+        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+
+        As[tx][ty] = A[a + wA * ty + tx];
+        Bs[ty][tx] = B[b + wB * ty + tx];
+
+        __syncthreads();
+
+        if(negate)
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
+        else
+          for (int k = 0; k < BLOCK_SIZE; ++k)
+            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
+
+        __syncthreads();
+    }
+
+    C[c + wB * ty + tx] = Csub;
+}
+
+/*
 ////////////////////////////////////////////////////
 // Matrix multiplication which transposes B operand
 // C = D +/- (A*B)
@@ -199,6 +260,7 @@ weight_adjustment( float* C
 
     C[c + wC * ty + tx] = Csub;
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // bias adjustments
@@ -220,7 +282,7 @@ bias_adjustment( float* adjusted_biases
   int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
 
   // one thread per neuron
-  int neuroni = bx * gridDim.x + tx;
+  int neuroni = bx * blockDim.x + tx;
   int batchi = 0;
 
   float bias = current_biases[ neuroni ];
@@ -240,65 +302,6 @@ bias_adjustment( float* adjusted_biases
 /*
 this is not needed I think
 
-////////////////////////////////////////////////////////////////////////////////
-//! Matrix multiplication on the device: C = A-transposed * B
-//! wAt is A's height (also known as A-transposed's width) and wB is B's width
-////////////////////////////////////////////////////////////////////////////////
-extern "C"
-__global__ void
-mmul_transpose_a( float* C
-                , float* A
-                , float* B
-                , float* D
-                , int negate
-                , int wAt
-                , int wB
-                , float learning_rate
-                )
-{
-    int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
-
-    int wA = gridDim.y * BLOCK_SIZE;
-
-    int aBegin = BLOCK_SIZE * by;
-
-    int aStep  = BLOCK_SIZE * wA;
-
-    int aEnd   = aBegin + (wA * wAt) - aStep;
-
-    int bBegin = BLOCK_SIZE * bx;
-
-    int bStep  = BLOCK_SIZE * wB;
-
-    int c = wB * BLOCK_SIZE * by + BLOCK_SIZE * bx;
-
-    float Csub = 0;
-
-    for (int a = aBegin, b = bBegin;
-             a <= aEnd;
-             a += aStep, b += bStep) {
-
-        __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
-
-        __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
-
-        As[tx][ty] = A[a + wA * ty + tx];
-        Bs[ty][tx] = B[b + wB * ty + tx];
-
-        __syncthreads();
-
-        if(negate)
-          for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub -= As[ty][k] * Bs[k][tx] * learning_rate;
-        else
-          for (int k = 0; k < BLOCK_SIZE; ++k)
-            Csub += As[ty][k] * Bs[k][tx] * learning_rate;
-
-        __syncthreads();
-    }
-
-    C[c + wB * ty + tx] = Csub;
-}
 */
 
 

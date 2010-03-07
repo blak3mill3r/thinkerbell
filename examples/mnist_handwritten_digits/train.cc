@@ -15,7 +15,7 @@
 #include <thinkerbell/deep_belief_network/scheduler.h>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
-#define B_SIZE 1024                  // 1st level feature detectors
+#define B_SIZE 16                  // 1st level feature detectors
 #define C_SIZE 2048                  // 2nd level feature detectors
 #define D_SIZE 4096                  // 3rd level feature detectors
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
@@ -39,12 +39,12 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
 {
   if(neurons_name == "digit image")
   {
-    cout << "prep examples..." ;
+    Logger::log("prep examples...");
     std::memcpy( example_buffer
                , digit_images
                , sizeof(digit_images)
                );
-    cout << "done! " << endl ;
+    Logger::log("done! ");
   }
 }
 
@@ -53,15 +53,15 @@ void trainefy(DBN &dbn)
   // init scheduler
   DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples );
   
-  cout << "--Training begins!" << endl;
+  Logger::log("--Training begins!");
   
   // start training
   thread scheduler_thread( ref(scheduler) );
   
-  sleep(15);
+  sleep(2);
   scheduler.stop();
   scheduler_thread.join();
-  cout << "--Training ends!" << endl;
+  Logger::log("--Training ends!");
 }
 
 int main(int argc, char** argv)
@@ -147,36 +147,65 @@ int main(int argc, char** argv)
     assert( numimages == 60000 );
     assert( imagewidth == 28 );
     assert( imageheight == 28 );
-    int data_size = numimages*imagewidth*imageheight;
-    unsigned char * digit_images_uchar = (unsigned char *)std::malloc( data_size );
-    infile.read((char*)digit_images_uchar, data_size);
-    for( int z=0; z<data_size; ++z )
+    int num_values = numimages*imagewidth*imageheight;
+    unsigned char * digit_images_uchar = (unsigned char *)std::malloc( num_values );
+    infile.read((char*)digit_images_uchar, num_values);
+    for( int z=0; z<num_values; ++z )
       digit_images[z] = digit_images_uchar[z] / 255.0;
     free(digit_images_uchar);
   }
 
   // randomize the weights we are about to train
-  dbn.m_graph[edge_ab].rbm->randomize_weights();
+  //dbn.m_graph[edge_ab].rbm->randomize_weights();
 
   // unmask A & B
   dbn.unmask( vA );
   dbn.unmask( vB );
 
-  go_again:
+  lgo_again:
   trainefy(dbn);
   
+  // debug output, spit out the total of the biases of vB
+  float *abiases = dbn.m_graph[vA].neurons->biases;
+  int numabiases = dbn.neurons_size(vA);
+  float totalabiases = 0.0;
+  int numposabiases = 0;
+  int numnegabiases = 0;
+  int numnanabiases = 0;
+
+  for(int kk=0;kk<numabiases;++kk)
+  {
+    if(abiases[kk]!=abiases[kk]) numnanabiases++;
+    else
+    {
+      if(abiases[kk]>0) numposabiases++;
+      else numnegabiases++;
+      totalabiases += abiases[kk];
+    }
+  }
+
+  cout << "total of biases in " << dbn.neurons_name(vA) << " = " << totalabiases << endl;
+  cout << "numnegbiases = " << numnegabiases
+       << "\nnumposbiases = " << numposabiases
+       << endl;
+
   // debug output, spit out the total of the biases of vB
   float *biases = dbn.m_graph[vB].neurons->biases;
   int numbiases = dbn.neurons_size(vB);
   float totalbiases = 0.0;
   int numposbiases = 0;
   int numnegbiases = 0;
+  int numnanbiases = 0;
 
   for(int kk=0;kk<numbiases;++kk)
   {
-    if(biases[kk]>0) numposbiases++;
-    else numnegbiases++;
-    totalbiases += biases[kk];
+    if(biases[kk]!=biases[kk]) numnanbiases++;
+    else
+    {
+      if(biases[kk]>0) numposbiases++;
+      else numnegbiases++;
+      totalbiases += biases[kk];
+    }
   }
 
   cout << "total of biases in " << dbn.neurons_name(vB) << " = " << totalbiases << endl;
@@ -193,11 +222,14 @@ int main(int argc, char** argv)
   int numzeroweights=0;
   for(int jj=0;jj<numweights;++jj)
   {
-    if(weights[jj]==0) numzeroweights++;
-    if(weights[jj]>0) numposweights++;
-    else numnegweights++;
     if(weights[jj]!=weights[jj]) numnanweights++;
-    weights_avg += weights[jj];
+    else
+    {
+      if(weights[jj]==0) numzeroweights++;
+      if(weights[jj]>0) numposweights++;
+      else numnegweights++;
+      weights_avg += weights[jj];
+    }
   }
   weights_avg /= numweights;
   cout << "\nweights average: " << weights_avg
@@ -212,7 +244,7 @@ int main(int argc, char** argv)
   int go_again;
   cin >> go_again;
   if(go_again != 0)
-    goto go_again;
+    goto lgo_again;
 
   // save to file
   {
