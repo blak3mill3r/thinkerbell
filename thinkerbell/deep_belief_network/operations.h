@@ -24,6 +24,7 @@ public:
     , weight_adjustment( module_rbm_kernels, "weight_adjustment" )
     , bias_adjustment(   module_rbm_kernels, "bias_adjustment" )
     , activate_neurons(  module_rbm_kernels, "activate_neurons" )
+    , weight_decay(      module_rbm_kernels, "weight_decay" )
     , random(            module_rng_kernels,  "RandomGPU" )
     , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
   {}
@@ -37,6 +38,26 @@ public:
       cout << "Failure on " << message << ", code: " << cret << endl;
     }
   }
+
+  void decay_weights( const Stream &stream
+                    , DevicePtr weights
+                    , int width
+                    , int height
+                    , float decay
+                    )
+                    {
+                      weight_decay.setBlockShape(BLOCK_SIZE,BLOCK_SIZE,1);
+                      weight_decay.go( width / BLOCK_SIZE
+                                     , height / BLOCK_SIZE
+                                     , stream
+                                     , weights
+                                     , width
+                                     , decay
+                                     );
+                      #ifdef DEBUG_SYNCHRONIZE
+                      wait_for_everything_debug("decay weights");
+                      #endif
+                    }
 
   void generate_randoms( const Stream &stream
                        , DevicePtr randoms
@@ -304,6 +325,7 @@ private:
          , weight_adjustment
          , bias_adjustment
          , activate_neurons
+         , weight_decay
          , random
          , box_muller
          ;

@@ -49,10 +49,10 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
   }
 }
 
-void trainefy(DBN &dbn, float learning_rate)
+void trainefy(DBN &dbn, float learning_rate, float weight_decay)
 {
   // init scheduler
-  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate );
+  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate, weight_decay );
   
   Logger::log("--Training begins!");
   
@@ -165,8 +165,11 @@ int main(int argc, char** argv)
   dbn.unmask( vA );
   dbn.unmask( vB );
 
+  cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
+  cin >> learning_rate;
+
   lgo_again:
-  trainefy(dbn, learning_rate);
+  trainefy(dbn, learning_rate, 0.999);
   
   // debug output, spit out the total of the biases of vB
   float *abiases = dbn.m_graph[vA].neurons->biases;

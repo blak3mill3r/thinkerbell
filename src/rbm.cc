@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <thinkerbell/rbm.h>
+#include <time.h>
 
 namespace thinkerbell {
 
@@ -20,7 +21,8 @@ Rbm::~Rbm()
 
 void Rbm::randomize_weights()
 {
-  float scale = 0.00001;
+  srand( time(NULL) );
+  float scale = 1.0 / m_A->size(); // FIXME an heuristic... not sure how good it is
   float bias = -scale*0.5;
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)

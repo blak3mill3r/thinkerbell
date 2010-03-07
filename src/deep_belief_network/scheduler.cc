@@ -8,6 +8,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
                           , int num_example_batches_on_host_ 
                           , void (*new_examples_callback_)(const std::string, float *)
                           , float learning_rate_
+                          , float weight_decay_
                           )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
@@ -17,6 +18,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
   , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
   , learning_rate( learning_rate_ )
   , new_examples_callback(new_examples_callback_)
+  , weight_decay(weight_decay_)
   , num_batches_trained(0)
 {}
 
@@ -395,6 +397,14 @@ void DBNScheduler::operator()()
                                       , dmemory->neurons_ptr(top, bufa)
                                       , learning_rate
                                       );
+
+        ops.decay_weights( *streams[streami]
+                         , dmemory->weights_ptr(e, bufc)
+                         , dbn->neurons_size(top)
+                         , dbn->neurons_size(sourcev)
+                         , weight_decay
+                         );
+
         // read biases from bufb
         // adjust them based on sourcev in bufa
         // write them to bufc

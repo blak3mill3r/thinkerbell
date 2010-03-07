@@ -297,10 +297,22 @@ bias_adjustment( float* adjusted_biases
   adjusted_biases[ neuroni ] = bias;
 }
 
-/*
-this is not needed I think
-
-*/
-
+////////////////////////////////////////////////////////////////////////////////
+// weight decay
+// multiplies weights element-wise by decay
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
+__global__ void
+weight_decay( float* weights
+            , int width
+            , float decay
+            )
+{
+  int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+  int x = bx*BLOCK_SIZE + tx;
+  int y = by*BLOCK_SIZE + ty;
+  int i = width*y+x;
+  weights[i] = weights[i] * decay;
+}
 
 #endif
