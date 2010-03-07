@@ -127,10 +127,10 @@ activate_neurons( float* energies               // read from
                 , int binary )
 {
   int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
-  int x = BLOCK_SIZE*bx + tx;
-  int y = BLOCK_SIZE*by + ty;
-  int i = y*neurons_size + x;
-  float energy = sigmoid(energies[i]+biases[i]);
+  int neuroni = BLOCK_SIZE*bx + tx;
+  int batchi = BLOCK_SIZE*by + ty;
+  int i = batchi*neurons_size + neuroni;
+  float energy = sigmoid(energies[i]+biases[neuroni]);
   float random = randoms[i];
   if(binary)
     activations[i] = ( energy > random ) ? 1.0 : 0.0 ;
@@ -280,9 +280,7 @@ bias_adjustment( float* adjusted_biases
                )
 {
   int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
-
-  // one thread per neuron
-  int neuroni = bx * blockDim.x + tx;
+  int neuroni = BLOCK_SIZE*bx + tx;
   int batchi = 0;
 
   float bias = current_biases[ neuroni ];
@@ -290,10 +288,10 @@ bias_adjustment( float* adjusted_biases
   // iterate through the batches
   if(negate)
     for(; batchi < batch_size; ++batchi )
-      bias -= energies[batch_size * batchi + neuroni] * learning_rate;
+      bias -= energies[neurons_size * batchi + neuroni] * learning_rate;
   else
     for(; batchi < batch_size; ++batchi )
-      bias += energies[batch_size * batchi + neuroni] * learning_rate;
+      bias += energies[neurons_size * batchi + neuroni] * learning_rate;
 
   // write the result
   adjusted_biases[ neuroni ] = bias;

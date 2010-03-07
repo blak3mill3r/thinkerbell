@@ -7,6 +7,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
                           , int num_example_batches_on_device_ 
                           , int num_example_batches_on_host_ 
                           , void (*new_examples_callback_)(const std::string, float *)
+                          , float learning_rate_
                           )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
@@ -14,22 +15,16 @@ DBNScheduler::DBNScheduler( DBN * dbn_
   , num_example_batches_on_host( num_example_batches_on_host_ )
   , time_to_stop( false )
   , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
-  //, trainer( new DBNTrainer( dbn, batch_size, num_example_batches_on_host_ ) )
+  , learning_rate( learning_rate_ )
   , new_examples_callback(new_examples_callback_)
-{
-}
+  , num_batches_trained(0)
+{}
 
 void DBNScheduler::init_rng()
-{
-  loadMTGPU("data/MersenneTwister.dat");
-}
+  { loadMTGPU("data/MersenneTwister.dat"); }
 
 void DBNScheduler::seed_rng()
-{
-  unsigned int r = rand();
-  //Logger::log("randoms");
-  seedMTGPU(r);
-}
+  { seedMTGPU( (unsigned int)rand() ); }
 
 //Load twister configurations
 void DBNScheduler::loadMTGPU(const char *fname){
@@ -78,8 +73,6 @@ void DBNScheduler::operator()()
   // where in the randoms buffer to find "fresh" numbers
   unsigned long random_offset = 0;
 
-  // weight adjustments are scaled by this factor
-  float learning_rate = 0.01;
   /*cout << "about to allocate_device_memory()\n"
  << "dmemory->weights_memory_size()       "
  << dmemory->weights_memory_size()       
@@ -207,12 +200,12 @@ void DBNScheduler::operator()()
                                    , dmemory->neurons_ptr(v, bufa)
                                    , dmemory->biases_ptr(v, bufa)
                                    );
-          cout << "reality: " << dbn->neurons_name(v) << endl;
+          /*cout << "reality: " << dbn->neurons_name(v) << endl;
           ops.debuggify( *streams[streami]
                        , dmemory->neurons_ptr(v, bufa)
                        , dbn->neurons_size(v)
                        , dmemory->neurons_batch_size(v) 
-                       );
+                       );  */
         }
         else
         { // v gets activated by each of its in-edges:
@@ -345,12 +338,12 @@ void DBNScheduler::operator()()
                            , !dbn->is_input_vertex(sourcev)
                            );
   
-          cout << "fantasy: " << dbn->neurons_name(sourcev) << endl;
+          /*cout << "fantasy: " << dbn->neurons_name(sourcev) << endl;
           ops.debuggify( *streams[streami]
                        , dmemory->neurons_ptr(sourcev, bufa)
                        , dbn->neurons_size(sourcev)
                        , dmemory->neurons_batch_size(sourcev) 
-                       );
+                       );  */
       }
 
       // now up-activate the top vertex from each of its in-edges
@@ -426,6 +419,7 @@ void DBNScheduler::operator()()
       
       exec_end[bufa].record( *(streams[streami]) );
 
+      num_batches_trained += batch_size;
       zzz = i;
       if( time_to_stop )
         goto alldone;

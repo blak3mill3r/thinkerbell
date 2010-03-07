@@ -15,7 +15,7 @@
 #include <thinkerbell/deep_belief_network/scheduler.h>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
-#define B_SIZE 16                  // 1st level feature detectors
+#define B_SIZE 1024                  // 1st level feature detectors
 #define C_SIZE 2048                  // 2nd level feature detectors
 #define D_SIZE 4096                  // 3rd level feature detectors
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
@@ -33,6 +33,7 @@ namespace po = boost::program_options;
 
 float digit_images[60000*28*28]; // the MNIST training image set, converted to floats in range 0-1
 float digit_labels[60000*1];
+int num_batches_trained = 0;
 
 // the examples callback
 void prepare_examples(const std::string neurons_name, float *example_buffer)
@@ -48,19 +49,20 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
   }
 }
 
-void trainefy(DBN &dbn)
+void trainefy(DBN &dbn, float learning_rate)
 {
   // init scheduler
-  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples );
+  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate );
   
   Logger::log("--Training begins!");
   
   // start training
   thread scheduler_thread( ref(scheduler) );
   
-  sleep(2);
+  sleep(10);
   scheduler.stop();
   scheduler_thread.join();
+  num_batches_trained += scheduler.get_num_batches_trained();
   Logger::log("--Training ends!");
 }
 
@@ -74,6 +76,7 @@ int main(int argc, char** argv)
      , edge_cd
      , edge_ld
      ;
+  float learning_rate = 0.1;
 
   po::options_description desc("Usage");
   desc.add_options()
@@ -156,14 +159,14 @@ int main(int argc, char** argv)
   }
 
   // randomize the weights we are about to train
-  //dbn.m_graph[edge_ab].rbm->randomize_weights();
+  dbn.m_graph[edge_ab].rbm->randomize_weights();
 
   // unmask A & B
   dbn.unmask( vA );
   dbn.unmask( vB );
 
   lgo_again:
-  trainefy(dbn);
+  trainefy(dbn, learning_rate);
   
   // debug output, spit out the total of the biases of vB
   float *abiases = dbn.m_graph[vA].neurons->biases;
@@ -240,10 +243,13 @@ int main(int argc, char** argv)
        << "\nnum total: "       << numweights
        << endl;
 
-  cout << "go again? 0 to stop" << endl;
-  int go_again;
-  cin >> go_again;
-  if(go_again != 0)
+  cout << "num batches trained: " << num_batches_trained
+       << "\nas a percentage of 60000 examples: " << num_batches_trained/60000.0
+       << endl;
+
+  cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
+  cin >> learning_rate;
+  if(learning_rate > 0.0000001)
     goto lgo_again;
 
   // save to file

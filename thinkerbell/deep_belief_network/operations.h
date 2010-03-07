@@ -3,7 +3,7 @@
 
 #include <cuda.h>
 
-//#define DEBUG_SYNCHRONIZE
+#define DEBUG_SYNCHRONIZE
 
 namespace thinkerbell {
 
@@ -61,7 +61,6 @@ public:
                                       );
                          #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("generate randoms");
-obviousbpoinin
                          #endif
                        }
 
@@ -286,7 +285,6 @@ obviousbpoinin
                   cuda::memcpy( tempneurons
                               , neurons_ptr
                               , sizeof(float) * neurons_batch_size
-                              //, stream
                               );
                   stream.synchronize();
                   for(int ni=0; ni<neurons_size; ++ni)

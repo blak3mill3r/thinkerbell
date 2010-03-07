@@ -19,12 +19,13 @@ namespace thinkerbell {
 class DBNScheduler : noncopyable
 {
 private:
+  float learning_rate; // weight and bias adjustments are scaled by this factor
+  int num_batches_trained;
   int batch_size;
   int num_example_batches;
   int num_example_batches_on_host;
   DBN * dbn;
   auto_ptr<DBNMemoryMapper> dmemory;
-  //auto_ptr<DBNTrainer> trainer;
 
   void (*new_examples_callback)(const std::string, float *);
 
@@ -43,11 +44,13 @@ public:
               , int num_example_batches_on_device_ 
               , int num_example_batches_on_host_ 
               , void (*new_examples_callback_)(const std::string, float *)
+              , float learning_rate_
               );
 
   void stop() { time_to_stop = true; }
   void init_rng();
   void seed_rng();
+  int get_num_batches_trained() { return num_batches_trained; }
   void generate_more_randoms( const Stream &stream, DbnOperations &ops );
 
   void operator()();

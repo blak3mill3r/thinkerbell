@@ -34,8 +34,6 @@ public:
       string name = dbn->neurons_name(v);
       int example_size = dbn->neurons_size(v);
       example_batch_size[name] = batch_size * example_size;
-      example_buffer[name] = (float *)std::malloc( sizeof(float) * example_batch_size[name] * num_batches );
-      /*
       float * ptr;
       CUresult cret;
 	    cret = cuMemHostAlloc( (void**)&ptr
@@ -44,11 +42,12 @@ public:
                            );
       if(cret!=CUDA_SUCCESS) 
       {
+        //FIXME fall back to pageable
+        //example_buffer[name] = (float *)std::malloc( sizeof(float) * example_batch_size[name] * num_batches );
         cout << "Couldn't get page-locked host memory for trainer... bail! error code = " << cret << endl;
         exit(0);
       }
       example_buffer[name] = ptr;
-      */
     }
   }
 
@@ -57,20 +56,20 @@ public:
     pair< string, float * > b;
     BOOST_FOREACH( b, example_buffer )
     {
-      /*
       CUresult cret;
       cret = cuMemFreeHost( b.second );
       if(cret!=CUDA_SUCCESS) 
       {
         cout << "Couldn't free page-locked host memory for trainer... bail! error code = " << cret << endl;
         exit(0);
-      }  */
-      std::free(b.second);
+      }
+      //FIXME fall back to pageable, free here
+      //std::free(b.second);
     }
   }
 
   int get_random_example_offset()
-    { return 0; } //FIXME( rand() % num_batches ); }
+    { return ( rand() % num_batches ); }
 
   float * get_example_batch(const std::string name, int offset)
     { return (example_buffer[name] + (offset * example_batch_size[name])); }
