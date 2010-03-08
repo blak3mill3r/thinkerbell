@@ -92,6 +92,8 @@ class DBN
     list<Vertex>::const_iterator input_vertices_end() const { return m_input_vertices.end(); }
     list<Vertex>::const_iterator all_vertices_begin() const { return m_all_vertices.begin(); }
     list<Vertex>::const_iterator all_vertices_end() const { return m_all_vertices.end(); }
+    list<Vertex>::const_reverse_iterator all_vertices_rbegin() const { return m_all_vertices.rbegin(); }
+    list<Vertex>::const_reverse_iterator all_vertices_rend() const { return m_all_vertices.rend(); }
     list<Edge>::const_iterator training_edges_begin() const { return m_training_edges.begin(); }
     list<Edge>::const_iterator training_edges_end() const { return m_training_edges.end(); }
     list<Edge>::const_iterator non_training_edges_begin() const { return m_non_training_edges.begin(); }
@@ -109,6 +111,12 @@ class DBN
 
     Neurons * neurons( Vertex v )
       { return (m_graph)[v].neurons; }
+
+    float * weights( Edge e )
+      { return (m_graph)[e].rbm->m_W.weights(); }
+
+    float * biases( Vertex v )
+      { return (m_graph)[v].neurons->biases; }
 
     std::string neurons_name( Vertex v )
       { return (m_graph)[v].name; }

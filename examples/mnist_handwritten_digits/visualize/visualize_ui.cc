@@ -7,13 +7,18 @@ using namespace std;
 void VisualizeUI::cb_example_i(Fl_Spinner* o, void*) {
   original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
 original->redraw();
+
+float reconstruction_image[28*28];
+(*reconstruction_callback)( &digit_images[28*28*(int)o->value()], reconstruction_image );
+reconstruction->set_digit_image( reconstruction_image );
+reconstruction->redraw();
 }
 void VisualizeUI::cb_example(Fl_Spinner* o, void* v) {
   ((VisualizeUI*)(o->parent()->user_data()))->cb_example_i(o,v);
 }
 
-VisualizeUI::VisualizeUI( float * digit_images_ ) {
-  { visualize_window = new Fl_Double_Window(880, 640);
+VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) ) {
+  { visualize_window = new Fl_Double_Window(175, 160);
     visualize_window->user_data((void*)(this));
     { Fl_Spinner* o = new Fl_Spinner(60, 1, 40, 24, "example");
       o->minimum(0);
@@ -32,9 +37,21 @@ VisualizeUI::VisualizeUI( float * digit_images_ ) {
       original->align(Fl_Align(FL_ALIGN_TOP));
       original->when(FL_WHEN_RELEASE);
     } // DigitWidget* original
+    { reconstruction = new DigitWidget(76, 51, 28, 28, "fantasy");
+      reconstruction->box(FL_NO_BOX);
+      reconstruction->color((Fl_Color)247);
+      reconstruction->selection_color(FL_BACKGROUND_COLOR);
+      reconstruction->labeltype(FL_NORMAL_LABEL);
+      reconstruction->labelfont(0);
+      reconstruction->labelsize(14);
+      reconstruction->labelcolor(FL_FOREGROUND_COLOR);
+      reconstruction->align(Fl_Align(FL_ALIGN_TOP));
+      reconstruction->when(FL_WHEN_RELEASE);
+    } // DigitWidget* reconstruction
     visualize_window->end();
   } // Fl_Double_Window* visualize_window
   digit_images = digit_images_;
+  reconstruction_callback = reconstruction_callback_;
 }
 
 void VisualizeUI::show(int argc, char** argv) {

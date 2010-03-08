@@ -30,19 +30,30 @@
 #include <boost/program_options.hpp>
 #include <thinkerbell/deep_belief_network.h>
 #include "visualize_ui.h"
+#include "hackage.h"
 
 #define TEST_IMAGES_FILENAME "../data/t10k-images-idx3-ubyte"
 #define TEST_LABELS_FILENAME "../data/t10k-labels-idx1-ubyte"
+#define NUM_IMAGES 10000
+
+//#define TEST_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
+//#define TEST_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
 
 namespace po = boost::program_options;
 
-float digit_images[10000*28*28]; // the MNIST test image set, converted to floats in range 0-1
-float digit_labels[10000*1];
+float digit_images[NUM_IMAGES*28*28]; // the MNIST test image set, converted to floats in range 0-1
+float digit_labels[NUM_IMAGES*1];
 
 VisualizeUI * visualize_ui;
+DBNHackage * dbn_hackage;
+
+void perceive_and_reconstruct( float* original, float* reconstruction )
+{
+  dbn_hackage->perceive_and_reconstruct( original, reconstruction );
+}
 
 int main(int argc, char** argv)
 {
@@ -107,7 +118,7 @@ int main(int argc, char** argv)
     infile.read((char *)&imageheight + 1, 1);
     infile.read((char *)&imageheight + 0, 1);
     assert( magicnumber == 2051 );
-    assert( numimages == 10000 );
+    assert( numimages == NUM_IMAGES );
     assert( imagewidth == 28 );
     assert( imageheight == 28 );
     int num_values = numimages*imagewidth*imageheight;
@@ -118,7 +129,10 @@ int main(int argc, char** argv)
     free(digit_images_uchar);
   }
 
-  visualize_ui = new VisualizeUI( &digit_images[0] );
+  // init hackage
+  dbn_hackage = new DBNHackage( &dbn );
+
+  visualize_ui = new VisualizeUI( &digit_images[0], perceive_and_reconstruct );
   visualize_ui->show(argc, argv);
   return Fl::run();
 

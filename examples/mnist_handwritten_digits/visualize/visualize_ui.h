@@ -9,14 +9,16 @@
 
 class VisualizeUI {
   float * digit_images; 
+  void (*reconstruction_callback)(float*, float*); 
 public:
-  VisualizeUI( float * digit_images_ );
+  VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) );
   Fl_Double_Window *visualize_window;
 private:
   void cb_example_i(Fl_Spinner*, void*);
   static void cb_example(Fl_Spinner*, void*);
 public:
   DigitWidget *original;
+  DigitWidget *reconstruction;
   void show(int argc, char** argv);
 };
 #endif

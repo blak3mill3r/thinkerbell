@@ -1,5 +1,7 @@
 #include <thinkerbell/deep_belief_network/scheduler.h>
 
+#define MERSENNE_TWISTER_DAT_FILE "../data/MersenneTwister.dat"
+
 namespace thinkerbell {
 
 DBNScheduler::DBNScheduler( DBN * dbn_
@@ -23,7 +25,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
 {}
 
 void DBNScheduler::init_rng()
-  { loadMTGPU("data/MersenneTwister.dat"); }
+  { loadMTGPU(MERSENNE_TWISTER_DAT_FILE); }
 
 void DBNScheduler::seed_rng()
   { seedMTGPU( (unsigned int)rand() ); }

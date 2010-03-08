@@ -23,8 +23,8 @@
 #define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
 
-#define TRAIN_IMAGES_FILENAME "./data/train-images-idx3-ubyte"
-#define TRAIN_LABELS_FILENAME "./data/train-labels-idx1-ubyte"
+#define TRAIN_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
+#define TRAIN_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
   po::options_description desc("Usage");
   desc.add_options()
       ("help", "output not-very-helpful text")
-      ("dbn", po::value<string>(&dbn_filename)->default_value("handwritten_digits_example.dbn"), "path to dbn file")
+      ("dbn", po::value<string>(&dbn_filename)->default_value("../data/handwritten_digits_example.dbn"), "path to dbn file")
       ;
   
   po::variables_map vm;
@@ -169,7 +169,7 @@ int main(int argc, char** argv)
   cin >> learning_rate;
 
   lgo_again:
-  trainefy(dbn, learning_rate, 0.999);
+  trainefy(dbn, learning_rate, 1.0);
   
   // debug output, spit out the total of the biases of vB
   float *abiases = dbn.m_graph[vA].neurons->biases;

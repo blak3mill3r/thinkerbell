@@ -15,15 +15,22 @@ class VisualizeUI {open
 } {
   decl {float * digit_images;} {private local
   }
-  Function {VisualizeUI( float * digit_images_ )} {open
+  decl {void (*reconstruction_callback)(float*, float*);} {private local
+  }
+  Function {VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) )} {open
   } {
     Fl_Window visualize_window {open
-      xywh {793 262 880 640} type Double visible
+      xywh {793 262 175 160} type Double visible
     } {
       Fl_Spinner {} {
         label example
         callback {original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
-original->redraw();} selected
+original->redraw();
+
+float reconstruction_image[28*28];
+(*reconstruction_callback)( &digit_images[28*28*(int)o->value()], reconstruction_image );
+reconstruction->set_digit_image( reconstruction_image );
+reconstruction->redraw();}
         private xywh {60 1 40 24} minimum 0 maximum 9999 value 0
       }
       Fl_Box original {
@@ -31,8 +38,14 @@ original->redraw();} selected
         xywh {16 51 28 28} color 247 align 1
         class DigitWidget
       }
+      Fl_Box reconstruction {
+        label fantasy selected
+        xywh {76 51 28 28} color 247 align 1
+        class DigitWidget
+      }
     }
     code {digit_images = digit_images_;} {}
+    code {reconstruction_callback = reconstruction_callback_;} {}
   }
   Function {show(int argc, char** argv)} {open return_type void
   } {

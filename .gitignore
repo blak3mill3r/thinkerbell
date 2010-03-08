@@ -7,5 +7,6 @@
 tags
 test/test_suite
 examples/mnist_handwritten_digits/train
+examples/mnist_handwritten_digits/visualize
 lib/*.so
 tmp/*.archive
