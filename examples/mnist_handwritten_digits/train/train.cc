@@ -13,6 +13,7 @@
 #include <cudamm/cuda.hpp>
 #include <thinkerbell/deep_belief_network.h>
 #include <thinkerbell/deep_belief_network/scheduler.h>
+#include <thinkerbell/deep_belief_network/stats.h>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
 #define B_SIZE 1024                  // 1st level feature detectors
@@ -70,6 +71,7 @@ int main(int argc, char** argv)
 {
   string dbn_filename;
   DBN dbn;
+  DBNStats stats(&dbn); 
   Vertex vA, vB, vC, vD, vL;
   Edge edge_ab
      , edge_bc
@@ -104,7 +106,6 @@ int main(int argc, char** argv)
     vC = dbn.find_neurons_by_name("feature detector 2");
     vD = dbn.find_neurons_by_name("feature detector 3");
     vL = dbn.find_neurons_by_name("digit labels");
-    cout << "found neurons by name and digit image size is " << dbn.neurons_size(vA);
     edge_ab = dbn.out_edge(vA);
     edge_bc = dbn.out_edge(vB);
     edge_cd = dbn.out_edge(vC);
@@ -123,6 +124,7 @@ int main(int argc, char** argv)
     edge_cd = dbn.connect( vC, vD );
     edge_ld = dbn.connect( vL, vD );
   }
+  stats.print_overview();
 
   // read examples from MNIST training set
   // convert to floats in the inclusive range [0.5-1.0]
@@ -162,95 +164,30 @@ int main(int argc, char** argv)
   }
 
   // randomize the weights we are about to train
-  dbn.m_graph[edge_ab].rbm->randomize_weights();
+  //dbn.m_graph[edge_ab].rbm->randomize_weights();
+  dbn.m_graph[edge_bc].rbm->randomize_weights();
+  //dbn.m_graph[edge_cd].rbm->randomize_weights();
+  //dbn.m_graph[edge_ld].rbm->randomize_weights();
 
   // unmask A & B
   dbn.unmask( vA );
   dbn.unmask( vB );
+  dbn.unmask( vC );
+  //dbn.unmask( vD );
+  //dbn.unmask( vL );
+  cout << "modified the dbn..." << endl;
+  stats.print_overview();
 
   cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
   cin >> learning_rate;
 
   lgo_again:
   trainefy(dbn, learning_rate, WEIGHT_DECAY, BIAS_DECAY);
+
+  stats.print_training_weights_and_biases();
   
-  // debug output, spit out the total of the biases of vB
-  float *abiases = dbn.m_graph[vA].neurons->biases;
-  int numabiases = dbn.neurons_size(vA);
-  float totalabiases = 0.0;
-  int numposabiases = 0;
-  int numnegabiases = 0;
-  int numnanabiases = 0;
-
-  for(int kk=0;kk<numabiases;++kk)
-  {
-    if(abiases[kk]!=abiases[kk]) numnanabiases++;
-    else
-    {
-      if(abiases[kk]>0) numposabiases++;
-      else numnegabiases++;
-      totalabiases += abiases[kk];
-    }
-  }
-
-  cout << "total of biases in " << dbn.neurons_name(vA) << " = " << totalabiases << endl;
-  cout << "numnegbiases = " << numnegabiases
-       << "\nnumposbiases = " << numposabiases
-       << endl;
-
-  // debug output, spit out the total of the biases of vB
-  float *biases = dbn.m_graph[vB].neurons->biases;
-  int numbiases = dbn.neurons_size(vB);
-  float totalbiases = 0.0;
-  int numposbiases = 0;
-  int numnegbiases = 0;
-  int numnanbiases = 0;
-
-  for(int kk=0;kk<numbiases;++kk)
-  {
-    if(biases[kk]!=biases[kk]) numnanbiases++;
-    else
-    {
-      if(biases[kk]>0) numposbiases++;
-      else numnegbiases++;
-      totalbiases += biases[kk];
-    }
-  }
-
-  cout << "total of biases in " << dbn.neurons_name(vB) << " = " << totalbiases << endl;
-  cout << "numnegbiases = " << numnegbiases
-       << "\nnumposbiases = " << numposbiases
-       << endl;
-
-  float *weights = dbn.m_graph[edge_ab].rbm->m_W.weights();
-  float weights_avg = 0.0;
-  int numweights = dbn.neurons_size(vA)*dbn.neurons_size(vB);
-  int numposweights=0;
-  int numnegweights=0;
-  int numnanweights=0;
-  int numzeroweights=0;
-  for(int jj=0;jj<numweights;++jj)
-  {
-    if(weights[jj]!=weights[jj]) numnanweights++;
-    else
-    {
-      if(weights[jj]==0) numzeroweights++;
-      if(weights[jj]>0) numposweights++;
-      else numnegweights++;
-      weights_avg += weights[jj];
-    }
-  }
-  weights_avg /= numweights;
-  cout << "\nweights average: " << weights_avg
-       << "\nnum +: "           << numposweights
-       << "\nnum -: "           << numnegweights
-       << "\nnum NaN: "         << numnanweights
-       << "\nnum 0: "           << numzeroweights
-       << "\nnum total: "       << numweights
-       << endl;
-
-  cout << "num batches trained: " << num_batches_trained
-       << "\nas a percentage of 60000 examples: " << num_batches_trained/60000.0
+  cout << "average number of training steps per example: "
+       << ((num_batches_trained*BATCH_SIZE)/60000.0)
        << endl;
 
   // auto-save

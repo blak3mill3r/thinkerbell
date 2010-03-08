@@ -30,7 +30,7 @@ using namespace boost::lambda;
 struct VertexProperties
 {
     string name;
-    bool mask; // if true, this vertex and any connected edges will be ignored FIXME this isn't true yet
+    bool mask; // if true, this vertex and any connected edges will be ignored
     Neurons *neurons;
     VertexProperties() : name("anonymous neurons"), mask(true) {}
   private:
@@ -130,7 +130,7 @@ class DBN
 
     Vertex find_neurons_by_name(const std::string n)
     {
-      BOOST_FOREACH( Vertex v, make_pair(all_vertices_begin(),all_vertices_end()) )
+      BOOST_FOREACH( Vertex v, make_pair(topological_order_begin(),topological_order_end()) )
       {
         if(m_graph[v].name == n) return v;
       }

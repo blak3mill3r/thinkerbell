@@ -22,7 +22,7 @@ class VisualizeUI {open
     Fl_Window visualize_window {open
       xywh {793 262 175 160} type Double visible
     } {
-      Fl_Spinner {} {
+      Fl_Spinner example_spinner {
         label example
         callback {original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
 original->redraw();
@@ -39,9 +39,17 @@ reconstruction->redraw();}
         class DigitWidget
       }
       Fl_Box reconstruction {
-        label fantasy selected
+        label fantasy
         xywh {76 51 28 28} color 247 align 1
         class DigitWidget
+      }
+      Fl_Button {} {
+        label again
+        callback {float reconstruction_image[28*28];
+(*reconstruction_callback)( &digit_images[28*28*(int)example_spinner->value()], reconstruction_image );
+reconstruction->set_digit_image( reconstruction_image );
+reconstruction->redraw();} selected
+        xywh {105 5 64 20}
       }
     }
     code {digit_images = digit_images_;} {}

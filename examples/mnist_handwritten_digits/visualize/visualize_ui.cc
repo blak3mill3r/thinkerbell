@@ -4,7 +4,7 @@
 #include <iostream>
 using namespace std;
 
-void VisualizeUI::cb_example_i(Fl_Spinner* o, void*) {
+void VisualizeUI::cb_example_spinner_i(Fl_Spinner* o, void*) {
   original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
 original->redraw();
 
@@ -13,19 +13,29 @@ float reconstruction_image[28*28];
 reconstruction->set_digit_image( reconstruction_image );
 reconstruction->redraw();
 }
-void VisualizeUI::cb_example(Fl_Spinner* o, void* v) {
-  ((VisualizeUI*)(o->parent()->user_data()))->cb_example_i(o,v);
+void VisualizeUI::cb_example_spinner(Fl_Spinner* o, void* v) {
+  ((VisualizeUI*)(o->parent()->user_data()))->cb_example_spinner_i(o,v);
+}
+
+void VisualizeUI::cb_again_i(Fl_Button*, void*) {
+  float reconstruction_image[28*28];
+(*reconstruction_callback)( &digit_images[28*28*(int)example_spinner->value()], reconstruction_image );
+reconstruction->set_digit_image( reconstruction_image );
+reconstruction->redraw();
+}
+void VisualizeUI::cb_again(Fl_Button* o, void* v) {
+  ((VisualizeUI*)(o->parent()->user_data()))->cb_again_i(o,v);
 }
 
 VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) ) {
   { visualize_window = new Fl_Double_Window(175, 160);
     visualize_window->user_data((void*)(this));
-    { Fl_Spinner* o = new Fl_Spinner(60, 1, 40, 24, "example");
-      o->minimum(0);
-      o->maximum(9999);
-      o->value(0);
-      o->callback((Fl_Callback*)cb_example);
-    } // Fl_Spinner* o
+    { example_spinner = new Fl_Spinner(60, 1, 40, 24, "example");
+      example_spinner->minimum(0);
+      example_spinner->maximum(9999);
+      example_spinner->value(0);
+      example_spinner->callback((Fl_Callback*)cb_example_spinner);
+    } // Fl_Spinner* example_spinner
     { original = new DigitWidget(16, 51, 28, 28, "original");
       original->box(FL_NO_BOX);
       original->color((Fl_Color)247);
@@ -48,6 +58,9 @@ VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_
       reconstruction->align(Fl_Align(FL_ALIGN_TOP));
       reconstruction->when(FL_WHEN_RELEASE);
     } // DigitWidget* reconstruction
+    { Fl_Button* o = new Fl_Button(105, 5, 64, 20, "again");
+      o->callback((Fl_Callback*)cb_again);
+    } // Fl_Button* o
     visualize_window->end();
   } // Fl_Double_Window* visualize_window
   digit_images = digit_images_;

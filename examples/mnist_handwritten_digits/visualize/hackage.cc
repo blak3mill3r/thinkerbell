@@ -57,7 +57,12 @@ DBNHackage::~DBNHackage()
 
 void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy)
 {
+  cout << "activate each vertex in topo order" << endl;
   // for each vertex in topo order
+  BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
+  {
+    cout << "topo order: " << v << endl;
+  }
   BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
   {
     if(dbn->is_input_vertex(v))
@@ -80,22 +85,29 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy)
   
     }
   }
+  cout << "activate each vertex in topo order -- is done" << endl;
 
-  // for each vertex in reverse topological order
+  cout << "activate down in reverse topo order " << endl;
   BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_rbegin(), dbn->all_vertices_rend() ) )
   {
-    graph_traits< DBNGraph >::out_edge_iterator out_i, out_end;
-    tie(out_i, out_end) = out_edges( v, dbn->m_graph );
-    if((out_end - out_i) == 1)
+    cout << "topo order: " << v << endl;
+  }
+
+  // for each vertex in reverse topological order except the top one
+  BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_rbegin(), dbn->all_vertices_rend() ) )
+  {
+    if( dbn->is_top_vertex(v) ) cout << "skipping down-activation on the top vertex which is " << v << endl;
+    if( !dbn->is_top_vertex(v) )
     {
       // activate by its only out-edge
-      Edge e = *out_i;
+      Edge e = dbn->out_edge( v );
       activate_edge_down(e);
   
       // set v's activations based on energies unless it's the digit image
       activate_neurons( v );
     }
   }
+  cout << "activate down in reverse topo order -- is done" << endl;
 
   // return a copy of the result in fantasy
   Vertex digitv = dbn->find_neurons_by_name("digit image");
@@ -112,6 +124,8 @@ void DBNHackage::activate_neurons( Vertex v )
   float * biases = dbn->biases(v);
 
   if( dbn->is_input_vertex(v) )
+  {
+    cout << "activate neurons " << dbn->neurons_name(v) << " which is an input node" << endl;
     for(int i=0; i<size; ++i)
     {
       //cout << "The energy in is " << neuron_values[v][i] << endl ;
@@ -119,9 +133,13 @@ void DBNHackage::activate_neurons( Vertex v )
       //cout << "The sigmoid is " << sigmoid(neuron_values[v][i] + biases[i]) << endl ;
       neuron_values[v][i] = sigmoid(neuron_values[v][i] + biases[i]) ;
     }
+  }
   else
+  {
+    cout << "activate neurons " << dbn->neurons_name(v) << " which is normal node" << endl;
     for(int i=0; i<size; ++i)
       neuron_values[v][i] = ( sigmoid(neuron_values[v][i] + biases[i]) > gaussian_random() ) ? 1 : 0;
+  }
 }
 
 void DBNHackage::activate_edge_up( Edge e, bool first_one )
