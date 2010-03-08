@@ -250,6 +250,15 @@ int main(int argc, char** argv)
        << "\nas a percentage of 60000 examples: " << num_batches_trained/60000.0
        << endl;
 
+  // auto-save
+  cout << "auto-saving \"" << dbn_filename << "\" ...";
+  {
+    std::ofstream ofs(dbn_filename.c_str());
+    boost::archive::binary_oarchive oa(ofs);
+    oa << dbn;
+  }
+  cout << "done!" << endl;
+
   cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
   cin >> learning_rate;
   if(learning_rate > 0.0000001)

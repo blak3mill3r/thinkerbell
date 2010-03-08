@@ -231,7 +231,7 @@ void DBNScheduler::operator()()
             first_one = false;
           }
 
-          // if we're in need of more randoms before we can set a's activations, generate more now
+          // if we're in need of more randoms before we can set v's activations, generate more now
           if(random_offset > 5860*4096-dmemory->neurons_batch_size(v)) // better idea maybe: 3 random buffers this size?
           {
             streams[0]->synchronize();  
@@ -248,7 +248,7 @@ void DBNScheduler::operator()()
                              , dmemory->neurons_ptr(v, bufa)
                              , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                              , dmemory->biases_ptr(v, bufa)
-                             , false // FIXME
+                             , true
                              );
     
           //cout << "Debuggify vertex " << dbn->neurons_name(v) << endl;

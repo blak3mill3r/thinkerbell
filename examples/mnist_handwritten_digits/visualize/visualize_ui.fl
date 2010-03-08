@@ -1,0 +1,41 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0300 
+header_name {.h} 
+code_name {.cc}
+decl {\#include "digit_widgets.h"} {public global
+} 
+
+decl {\#include <iostream>} {private global
+} 
+
+decl {using namespace std;} {private local
+} 
+
+class VisualizeUI {open
+} {
+  decl {float * digit_images;} {private local
+  }
+  Function {VisualizeUI( float * digit_images_ )} {open
+  } {
+    Fl_Window visualize_window {open
+      xywh {793 262 880 640} type Double visible
+    } {
+      Fl_Spinner {} {
+        label example
+        callback {original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
+original->redraw();} selected
+        private xywh {60 1 40 24} minimum 0 maximum 9999 value 0
+      }
+      Fl_Box original {
+        label original
+        xywh {16 51 28 28} color 247 align 1
+        class DigitWidget
+      }
+    }
+    code {digit_images = digit_images_;} {}
+  }
+  Function {show(int argc, char** argv)} {open return_type void
+  } {
+    code {visualize_window->show(argc,argv);} {}
+  }
+} 
