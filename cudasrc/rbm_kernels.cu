@@ -315,4 +315,19 @@ weight_decay( float* weights
   weights[i] = weights[i] * decay;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// bias decay
+// multiplies biases element-wise by decay
+////////////////////////////////////////////////////////////////////////////////
+extern "C"
+__global__ void
+bias_decay( float* biases
+          , int width
+          , float decay
+          )
+{
+  int i = blockIdx.x*BLOCK_SIZE + threadIdx.x;
+  biases[i] = biases[i] * decay;
+}
+
 #endif

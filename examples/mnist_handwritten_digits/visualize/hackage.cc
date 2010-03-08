@@ -114,7 +114,8 @@ void DBNHackage::activate_neurons( Vertex v )
   if( dbn->is_input_vertex(v) )
     for(int i=0; i<size; ++i)
     {
-      //cout << "The energy is " << neuron_values[v][i] + biases[i] << endl ;
+      //cout << "The energy in is " << neuron_values[v][i] << endl ;
+      //cout << "The bias is " << biases[i] << endl ;
       //cout << "The sigmoid is " << sigmoid(neuron_values[v][i] + biases[i]) << endl ;
       neuron_values[v][i] = sigmoid(neuron_values[v][i] + biases[i]) ;
     }

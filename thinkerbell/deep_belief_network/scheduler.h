@@ -21,6 +21,7 @@ class DBNScheduler : noncopyable
 private:
   float learning_rate; // weight and bias adjustments are scaled by this factor
   float weight_decay; // weights are scaled by this factor each training step
+  float bias_decay; // biases are scaled by this factor each training step
   int num_batches_trained;
   int batch_size;
   int num_example_batches;
@@ -47,6 +48,7 @@ public:
               , void (*new_examples_callback_)(const std::string, float *)
               , float learning_rate_
               , float weight_decay_
+              , float bias_decay_
               );
 
   void stop() { time_to_stop = true; }

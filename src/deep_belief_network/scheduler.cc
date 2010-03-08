@@ -11,6 +11,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
                           , void (*new_examples_callback_)(const std::string, float *)
                           , float learning_rate_
                           , float weight_decay_
+                          , float bias_decay_
                           )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
@@ -21,6 +22,7 @@ DBNScheduler::DBNScheduler( DBN * dbn_
   , learning_rate( learning_rate_ )
   , new_examples_callback(new_examples_callback_)
   , weight_decay(weight_decay_)
+  , bias_decay(bias_decay_)
   , num_batches_trained(0)
 {}
 
@@ -417,6 +419,12 @@ void DBNScheduler::operator()()
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
+        ops.decay_biases( *streams[streami]
+                        , dmemory->biases_ptr(sourcev, bufc)
+                        , dbn->neurons_size(sourcev)
+                        , bias_decay
+                        );
+
       }
 
       // negative bias adjustment for top vertex
@@ -427,7 +435,11 @@ void DBNScheduler::operator()()
                                   , dmemory->neurons_ptr(top, bufa)
                                   , learning_rate
                                   );
-
+      ops.decay_biases( *streams[streami]
+                      , dmemory->biases_ptr(top, bufc)
+                      , dbn->neurons_size(top)
+                      , bias_decay
+                      );
       
       exec_end[bufa].record( *(streams[streami]) );
 

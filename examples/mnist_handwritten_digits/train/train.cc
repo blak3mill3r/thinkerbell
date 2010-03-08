@@ -22,6 +22,8 @@
 #define BATCH_SIZE 16
 #define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
+#define WEIGHT_DECAY (1.0-(learning_rate*0.15))
+#define BIAS_DECAY   (1.0-(learning_rate*0.15))
 
 #define TRAIN_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
 #define TRAIN_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
@@ -40,19 +42,17 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
 {
   if(neurons_name == "digit image")
   {
-    Logger::log("prep examples...");
     std::memcpy( example_buffer
                , digit_images
                , sizeof(digit_images)
                );
-    Logger::log("done! ");
   }
 }
 
-void trainefy(DBN &dbn, float learning_rate, float weight_decay)
+void trainefy(DBN &dbn, float learning_rate, float weight_decay, float bias_decay)
 {
   // init scheduler
-  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate, weight_decay );
+  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate, weight_decay, bias_decay );
   
   Logger::log("--Training begins!");
   
@@ -125,7 +125,8 @@ int main(int argc, char** argv)
   }
 
   // read examples from MNIST training set
-  // convert to floats
+  // convert to floats in the inclusive range [0.5-1.0]
+  // 1.0 being the "ink" color
   {
     ifstream infile;
     infile.open(TRAIN_IMAGES_FILENAME, ios::binary | ios::in);
@@ -153,8 +154,10 @@ int main(int argc, char** argv)
     int num_values = numimages*imagewidth*imageheight;
     unsigned char * digit_images_uchar = (unsigned char *)std::malloc( num_values );
     infile.read((char*)digit_images_uchar, num_values);
-    for( int z=0; z<num_values; ++z )
-      digit_images[z] = digit_images_uchar[z] / 255.0;
+
+    for( int z=0; z<num_values; ++z ) // scale to 0-0.5 range and bias +0.5
+      digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
+
     free(digit_images_uchar);
   }
 
@@ -169,7 +172,7 @@ int main(int argc, char** argv)
   cin >> learning_rate;
 
   lgo_again:
-  trainefy(dbn, learning_rate, 1.0);
+  trainefy(dbn, learning_rate, WEIGHT_DECAY, BIAS_DECAY);
   
   // debug output, spit out the total of the biases of vB
   float *abiases = dbn.m_graph[vA].neurons->biases;
@@ -259,9 +262,9 @@ int main(int argc, char** argv)
   }
   cout << "done!" << endl;
 
-  cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
-  cin >> learning_rate;
-  if(learning_rate > 0.0000001)
+  //cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
+  //cin >> learning_rate;
+  if((num_batches_trained/60000.0) < 3.0 )
     goto lgo_again;
 
   // save to file

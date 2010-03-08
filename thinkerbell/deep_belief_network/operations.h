@@ -3,7 +3,7 @@
 
 #include <cuda.h>
 
-#define DEBUG_SYNCHRONIZE
+//#define DEBUG_SYNCHRONIZE
 
 namespace thinkerbell {
 
@@ -25,6 +25,7 @@ public:
     , bias_adjustment(   module_rbm_kernels, "bias_adjustment" )
     , activate_neurons(  module_rbm_kernels, "activate_neurons" )
     , weight_decay(      module_rbm_kernels, "weight_decay" )
+    , bias_decay(        module_rbm_kernels, "bias_decay" )
     , random(            module_rng_kernels,  "RandomGPU" )
     , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
   {}
@@ -58,6 +59,25 @@ public:
                       wait_for_everything_debug("decay weights");
                       #endif
                     }
+
+  void decay_biases( const Stream &stream
+                   , DevicePtr biases
+                   , int size
+                   , float decay
+                   )
+                   {
+                     bias_decay.setBlockShape(BLOCK_SIZE,1,1);
+                     bias_decay.go( size / BLOCK_SIZE
+                                  , 1
+                                  , stream
+                                  , biases
+                                  , size
+                                  , decay
+                                  );
+                     #ifdef DEBUG_SYNCHRONIZE
+                     wait_for_everything_debug("decay biases");
+                     #endif
+                   }
 
   void generate_randoms( const Stream &stream
                        , DevicePtr randoms
@@ -326,6 +346,7 @@ private:
          , bias_adjustment
          , activate_neurons
          , weight_decay
+         , bias_decay
          , random
          , box_muller
          ;

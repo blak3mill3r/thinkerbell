@@ -67,7 +67,7 @@ int main(int argc, char** argv)
   po::options_description desc("Usage");
   desc.add_options()
       ("help", "output not-very-helpful text")
-      ("dbn", po::value<string>(&dbn_filename)->default_value("handwritten_digits_example.dbn"), "path to dbn file")
+      ("dbn", po::value<string>(&dbn_filename)->default_value("../data/handwritten_digits_example.dbn"), "path to dbn file")
       ("temperature", po::value<float>(&temperature)->default_value(1.0), "scales the likelihood of a neuron activation (high numbers = more likely) NOT IMPLEMENTED DOES NOTHING")
       ;
   
@@ -96,7 +96,8 @@ int main(int argc, char** argv)
   }
 
   // read examples from MNIST test set
-  // convert to floats
+  // convert to floats in the inclusive range [0.5-1.0]
+  // 1.0 being the "ink" color
   {
     ifstream infile;
     infile.open(TEST_IMAGES_FILENAME, ios::binary | ios::in);
@@ -125,7 +126,7 @@ int main(int argc, char** argv)
     unsigned char * digit_images_uchar = (unsigned char *)std::malloc( num_values );
     infile.read((char*)digit_images_uchar, num_values);
     for( int z=0; z<num_values; ++z )
-      digit_images[z] = digit_images_uchar[z] / 255.0;
+      digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
     free(digit_images_uchar);
   }
 
