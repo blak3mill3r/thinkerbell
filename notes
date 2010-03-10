@@ -3,19 +3,19 @@ momentum
   new mem space weight_deltas, 3-buffers, still 3 for weight buffers too
   posprods (probability-deltas?)
   positive probability deltas:
-    positive phase does this to weight-delta bufc
-      weight_update, replacing contents of bufc
-    negative phase, weight delta bufc
-      weight_update, subtracting from contents
-      divide result by batch_size
+    before positive phase:
+      weight-delta-bufc element-wise reading bufb                    f(x) = x * momentum
+    positive phase:
+      weight_update, adding to contents of weight-delta-bufc:        f(x) = x + epsilonw*pos-probability-delta/batch_size
+    negative phase:
+      weight_update, subtracting from contents of weight-delta-bufc: f(x) = x - epsilonw*neg-probability-deltas/batch_size
+    error kernel: element wise sum of (reality-fantasy)^2
+    update
+      weight decay, subtracting from contents of bufc                f(x) = x - epsilonw*weightcost*weight
+      weight update, weight-bufc = weight-bufb + weight-delta-bufc
       
 
-weight decay:
-  weightcost*weights is subtracted from ((net weight deltas)/batch_size)
-
-divide weight updates by batch_size
 add a rms error kernel
-  element wise sum of (reality-fantasy)^2
 
 
 

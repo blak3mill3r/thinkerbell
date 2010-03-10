@@ -98,19 +98,24 @@ void DBNScheduler::operator()()
   { // anonymous scope for the DeviceMemory auto_ptrs (they need to be destroyed before context)
     // allocate device memory for the algorithm
     auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
-    auto_ptr<DeviceMemory> biases_memory(         new DeviceMemory( dmemory->biases_memory_size()        ) );
+    auto_ptr<DeviceMemory> weight_deltas_memory(  new DeviceMemory( dmemory->weight_deltas_memory_size()  ) );
+    auto_ptr<DeviceMemory> biases_memory(         new DeviceMemory( dmemory->biases_memory_size()         ) );
+    auto_ptr<DeviceMemory> bias_deltas_memory(    new DeviceMemory( dmemory->bias_deltas_memory_size()    ) );
     auto_ptr<DeviceMemory> example_memory(        new DeviceMemory( dmemory->example_memory_size()        ) );
     auto_ptr<DeviceMemory> temporary_memory(      new DeviceMemory( dmemory->temporary_memory_size()      ) );
     auto_ptr<DeviceMemory> randoms_memory(        new DeviceMemory( dmemory->randoms_memory_size()        ) );
     auto_ptr<DeviceMemory> random_configs_memory( new DeviceMemory( dmemory->random_configs_memory_size() ) );
 
     dmemory->allocate_device_memory( weights_memory->ptr()
+                                   , weight_deltas_memory->ptr()
                                    , biases_memory->ptr()
+                                   , bias_deltas_memory->ptr()
                                    , example_memory->ptr()
                                    , temporary_memory->ptr()
                                    , randoms_memory->ptr()
                                    , random_configs_memory->ptr()
                                    );
+
     // cuda operations for the algorithm:
     DbnOperations ops;
 

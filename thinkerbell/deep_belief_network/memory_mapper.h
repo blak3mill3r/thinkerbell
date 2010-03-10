@@ -15,15 +15,27 @@ class DBNScheduler;
 
 // class DBNMemoryMapper
 //   manages the layout of device memory for the DBN algorithm
-//   allocates space for weights, biases, temporary neuron activation values, and training examples
+//   allocates space for weights, weight deltas, biases, bias deltas, temporary neuron activation values, and training examples
 class DBNMemoryMapper : noncopyable
 {
 public:
   DBNMemoryMapper( DBNScheduler * dbn_scheduler_, DBN * dbn_, int batch_size_, int num_example_batches_ );
-  void allocate_device_memory(DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr, DevicePtr);
+
+  void allocate_device_memory( DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             , DevicePtr
+                             );
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
     { return weights_ptr_map[e][buffer_index]; }
+
+  DevicePtr weight_deltas_ptr( Edge e, int buffer_index )
+    { return weight_deltas_ptr_map[e][buffer_index]; }
 
   DevicePtr example_ptr( Vertex v, int buffer_index )
     { return example_memory_ptr_map[v][buffer_index]; }
@@ -39,6 +51,9 @@ public:
 
   DevicePtr biases_ptr( Vertex v, int buffer_index )
     { return (biases_ptr_map[v][buffer_index]); }
+
+  DevicePtr bias_deltas_ptr( Vertex v, int buffer_index )
+    { return (bias_deltas_ptr_map[v][buffer_index]); }
 
   void upload_weights( Edge e, int buffer_index )
   {
@@ -222,6 +237,7 @@ private:
     }
   }
 
+  // members for temporary memory management
   int temporary_memory_minimum_size;
   map<Edge,int>         temporary_edge_memory_offsets;
   map<Vertex,int>       temporary_vertex_memory_offsets;
@@ -230,10 +246,14 @@ private:
   map<Vertex,vector<DevicePtr> > example_memory_ptr_map;
   list<pair<int,int> > temporary_memory_allocated;
   list<pair<int,int> > temporary_memory_free;
+
+  // pointers to the device memory
   DevicePtr             temporary_memory_ptr
           ,             example_memory_ptr
           ,             weights_memory_ptr
+          ,             weight_deltas_memory_ptr
           ,             biases_memory_ptr
+          ,             bias_deltas_memory_ptr
           ,             randoms_ptr_
           ,             random_configs_ptr_
           ;
@@ -241,17 +261,19 @@ public:
   int temporary_memory_size();
   int example_memory_size();
   int weights_memory_size();
+  int weight_deltas_memory_size();
   int biases_memory_size();
+  int bias_deltas_memory_size();
   int randoms_memory_size();
   int random_configs_memory_size();
   int neurons_batch_size( Vertex v );
 private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
+  void weight_deltas_memory_requirements( Edge e, bool triple_buffered );
   DevicePtr map_weights_ptrs( const pair<Edge,pair<int,bool> > &edge_and_layout, DevicePtr p );
   DevicePtr map_biases_ptrs( const pair<Vertex,pair<int,bool> > &vertex_and_layout, DevicePtr p );
   int weight_matrix_size( Edge e );
 
-protected:
   DBN * dbn;
   DBNScheduler * dbn_scheduler;
   int batch_size
@@ -261,16 +283,26 @@ protected:
     ;
  
    // the int is the size, the bool is triple-buffering
+   // the deltas are always triple-buffered
+   // FIXME refactor
    map<Edge, pair< int, bool > > weights_memory_layout_map;
+   map<Edge, int>                weight_deltas_memory_layout_map;
    map<Vertex, pair< int, bool > > biases_memory_layout_map;
+   map<Vertex, int>                bias_deltas_memory_layout_map;
  
    // for each Edge, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the weights will not be written to)
    map<Edge, vector< DevicePtr > > weights_ptr_map;
+
+   // for each training edge, a pointer for each of 3 phases
+   map<Edge, vector< DevicePtr > > weight_deltas_ptr_map;
  
    // for each Vertex, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the vertex's biases will not be written to)
    map<Vertex, vector< DevicePtr > > biases_ptr_map;
+
+   // for each training vertex, a pointer for each of 3 phases
+   map<Vertex, vector< DevicePtr > > bias_deltas_ptr_map;
  
 }; // end class DBNMemoryMapper
 
