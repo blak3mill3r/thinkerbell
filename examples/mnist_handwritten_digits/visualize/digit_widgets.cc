@@ -30,8 +30,8 @@ void DigitWidget::draw()
 void DigitWidget::set_digit_image(float * i)
 {
   for(int y=0; y<28; y++)
-  for(int x=0; x<28; x++)
-    digit_image[y*28+x] = (unsigned char)(i[y*28+x] * 255.0);
+  for(int x=0; x<28; x++) // clamping at mid-gray
+    digit_image[y*28+x] = max((uchar)128, (unsigned char)(i[y*28+x] * 255.0));
 }
 
 void LabelWidget::draw()
