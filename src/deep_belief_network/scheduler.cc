@@ -12,8 +12,8 @@ DBNScheduler::DBNScheduler( DBN * dbn_
                           , int num_example_batches_on_host_ 
                           , void (*new_examples_callback_)(const std::string, float *)
                           , float learning_rate_
-                          , float weight_decay_
-                          , float bias_decay_
+                          , float weight_cost_
+                          , float momentum_
                           )
   : batch_size( batch_size_ )
   , dbn( dbn_ )
@@ -23,8 +23,8 @@ DBNScheduler::DBNScheduler( DBN * dbn_
   , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
   , learning_rate( learning_rate_ )
   , new_examples_callback( new_examples_callback_ )
-  , weight_decay( weight_decay_ )
-  , bias_decay( bias_decay_ )
+  , weight_cost( weight_cost_ )
+  , momentum( momentum_ )
   , num_batches_trained( 0 )
 {}
 
@@ -136,19 +136,45 @@ void DBNScheduler::operator()()
     // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
     BOOST_FOREACH( Edge e, make_pair(dbn->all_edges_begin(),dbn->all_edges_end()))
     {
-      dmemory->upload_weights( e, 0 );
-      dmemory->upload_weights( e, 1 );
-      dmemory->upload_weights( e, 2 );
+      for(int bi=0; bi<3; ++bi)
+        dmemory->upload_weights( e, bi );
     }
 
     // transfer biases to device, all 3 buffers
     // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
     BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()))
     {
-      dmemory->upload_biases( v, 0 );
-      dmemory->upload_biases( v, 1 );
-      dmemory->upload_biases( v, 2 );
+      for(int bi=0; bi<3; ++bi)
+        dmemory->upload_biases( v, bi );
     }
+
+    // zero the weight deltas
+    // FIXME put this in DBNMemoryMapper?
+    BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
+    {
+      for(int bi=0; bi<3; ++bi)
+        memset32( dmemory->weight_deltas_ptr(e, bi)
+                , static_cast<unsigned int>( (float)0.0 )
+                , dbn->weights_size(e)
+                );
+    }
+
+    // zero the bias deltas
+    BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
+    {
+      Vertex sourcev = source(e, dbn->m_graph);
+      for(int bi=0; bi<3; ++bi)
+        memset32( dmemory->bias_deltas_ptr(sourcev, bi)
+                , static_cast<unsigned int>( (float)0.0 )
+                , dbn->neurons_size(sourcev)
+                );
+    }
+    Vertex topv = dbn->top_vertex();
+    for(int bi=0; bi<3; ++bi)
+      memset32( dmemory->bias_deltas_ptr(topv, bi)
+              , static_cast<unsigned int>( (float)0.0 )
+              , dbn->neurons_size(topv)
+              );
 
     // init the rng
     init_rng();
@@ -178,11 +204,15 @@ void DBNScheduler::operator()()
     {
                             // this gives us three phases
       int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
-      int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
+      int bufb = ((i+1)%3); // bufb weights will be used as the source of weights and deltas (because it was written to last step and is guaranteed not to be written during this iteration)
       int bufc = ((i+2)%3); // bufc weights will be written to because it will be bufc next iteration and will be used for activation steps
       int streami = i%2;
 
-      int example_offset = trainer->get_random_example_offset();
+      int example_index = trainer->get_random_example_index();
+
+      // synch with the end of the execution of the last one using A buffers
+      if(!exec_end[bufa].query())
+        { exec_end[bufa].synchronize(); }
 
       // transfer a batch of examples into A buffer
       // FIXME OPTIMIZE do this every nth time or something... space them out
@@ -190,15 +220,11 @@ void DBNScheduler::operator()()
       BOOST_FOREACH( Vertex inputv, make_pair(dbn->input_vertices_begin(),dbn->input_vertices_end()))
       {
         cuda::memcpy( dmemory->example_ptr( inputv, bufa )
-                    , trainer->get_example_batch( dbn->neurons_name(inputv), example_offset )
+                    , trainer->get_example_batch( dbn->neurons_name(inputv), example_index )
                     , sizeof(float) * dmemory->neurons_batch_size(inputv)
-                    //, *streams[streami]
+                    //, *streams[streami] // FIXME put this back in for asynch copy
                     );
       }
-
-      // synch with the end of the execution of the last one using A buffers
-      if(!exec_end[bufa].query())
-        { exec_end[bufa].synchronize(); }
 
       // for each vertex in topo order
       BOOST_FOREACH( Vertex v, make_pair(dbn->all_vertices_begin(),dbn->all_vertices_end()) )
@@ -287,21 +313,49 @@ void DBNScheduler::operator()()
       if(!exec_end[bufc].query())
         { exec_end[bufc].synchronize(); }
 
+      // friction: copy weight-deltas and bias-deltas from last iteration, scaled by momentum
+      Vertex topv = dbn->top_vertex();
+      BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
+      {
+        Vertex sourcev = source( e, dbn->m_graph );
+        ops.decelerate_weights( *streams[streami]
+                              , dmemory->weight_deltas_ptr( e, bufc )
+                              , dmemory->weight_deltas_ptr( e, bufb )
+                              , momentum
+                              , dbn->neurons_size( topv )
+                              , dbn->neurons_size( sourcev )
+                              );
+        ops.decelerate_biases( *streams[streami]
+                             , dmemory->bias_deltas_ptr( sourcev, bufc )
+                             , dmemory->bias_deltas_ptr( sourcev, bufb )
+                             , momentum
+                             , dbn->neurons_size( sourcev )
+                             );
+      }
+      ops.decelerate_biases( *streams[streami]
+                           , dmemory->bias_deltas_ptr( topv, bufc )
+                           , dmemory->bias_deltas_ptr( topv, bufb )
+                           , momentum
+                           , dbn->neurons_size( topv )
+                           );
+
+      ///////////////////////////
+      // POSITIVE PHASE BEGINS //
+      ///////////////////////////
+
       // for each in-edge of the top vertex,
       // do a positive weight adjustment and positive bias adjustment
       Vertex top = dbn->top_vertex();
       BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
       {
         Vertex sourcev = source( e, dbn->m_graph );
-        // read weights from bufb
-        // adjust them based on sourcev and top in bufa
-        // write them to bufc
+        // adjust weight deltas in bufc
+        // based on sourcev and top in bufa
         ops.positive_weight_adjustment( *streams[streami]
                                       , dbn->neurons_size(top)
                                       , dbn->neurons_size(sourcev)
                                       , batch_size
-                                      , dmemory->weights_ptr(e, bufb)
-                                      , dmemory->weights_ptr(e, bufc)
+                                      , dmemory->weight_deltas_ptr(e, bufc)
                                       , dmemory->neurons_ptr(sourcev, bufa)
                                       , dmemory->neurons_ptr(top, bufa)
                                       , learning_rate
@@ -312,8 +366,7 @@ void DBNScheduler::operator()()
         ops.positive_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
-                                    , dmemory->biases_ptr(sourcev, bufb)
-                                    , dmemory->biases_ptr(sourcev, bufc)
+                                    , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
@@ -323,8 +376,7 @@ void DBNScheduler::operator()()
       ops.positive_bias_adjustment( *streams[streami]
                                   , dbn->neurons_size(top)
                                   , batch_size
-                                  , dmemory->biases_ptr(top, bufb)
-                                  , dmemory->biases_ptr(top, bufc)
+                                  , dmemory->bias_deltas_ptr(top, bufc)
                                   , dmemory->neurons_ptr(top, bufa)
                                   , learning_rate
                                   );
@@ -415,6 +467,11 @@ void DBNScheduler::operator()()
       //////////////
     }
 
+      ///////////////////////////
+      // POSITIVE PHASE ENDS   //
+      // NEGATIVE PHASE BEGINS //
+      ///////////////////////////
+
       // for each in-edge of the top vertex, do a negative weight adjustment
       // and a negative bias adjustment for the source vertex
       BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
@@ -424,18 +481,11 @@ void DBNScheduler::operator()()
                                       , dbn->neurons_size(top)
                                       , dbn->neurons_size(sourcev)
                                       , batch_size
-                                      , dmemory->weights_ptr(e, bufc)
+                                      , dmemory->weight_deltas_ptr(e, bufc)
                                       , dmemory->neurons_ptr(sourcev, bufa)
                                       , dmemory->neurons_ptr(top, bufa)
                                       , learning_rate
                                       );
-
-        ops.decay_weights( *streams[streami]
-                         , dmemory->weights_ptr(e, bufc)
-                         , dbn->neurons_size(top)
-                         , dbn->neurons_size(sourcev)
-                         , weight_decay
-                         );
 
         // read biases from bufb
         // adjust them based on sourcev in bufa
@@ -443,36 +493,73 @@ void DBNScheduler::operator()()
         ops.negative_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
-                                    , dmemory->biases_ptr(sourcev, bufc)
+                                    , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
-        ops.decay_biases( *streams[streami]
-                        , dmemory->biases_ptr(sourcev, bufc)
-                        , dbn->neurons_size(sourcev)
-                        , bias_decay
-                        );
-
       }
 
       // negative bias adjustment for top vertex
       ops.negative_bias_adjustment( *streams[streami]
                                   , dbn->neurons_size(top)
                                   , batch_size
-                                  , dmemory->biases_ptr(top, bufc)
+                                  , dmemory->bias_deltas_ptr(top, bufc)
                                   , dmemory->neurons_ptr(top, bufa)
                                   , learning_rate
                                   );
-/*
-      ops.decay_biases( *streams[streami]
-                      , dmemory->biases_ptr(top, bufc)
-                      , dbn->neurons_size(top)
-                      , bias_decay
-                      );
-  */
+
+      /////////////////////////
+      // NEGATIVE PHASE ENDS //
+      /////////////////////////
+      
+      /////////////////////////////
+      // WEIGHT AND BIAS UPDATES //
+      /////////////////////////////
+
+      // weight decay for each training edge
+      //BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
+      //{
+      //  Vertex sourcev = source( e, dbn->m_graph );
+      //  ops.decay_weights( *streams[streami]
+      //                   , dmemory->weight_deltas_ptr( e, bufc )
+      //                   , dmemory->weights_ptr( e, bufc )
+      //                   , dbn->neurons_size( topv )
+      //                   , dbn->neurons_size( sourcev )
+      //                   , learning_rate * weight_cost
+      //                   );
+      //}
+
+      BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
+      {
+        Vertex sourcev = source( e, dbn->m_graph );
+        ops.update_weights( *streams[streami]
+                          , dmemory->weights_ptr( e, bufc )
+                          , dmemory->weights_ptr( e, bufb )
+                          , dmemory->weight_deltas_ptr( e, bufc )
+                          , dbn->neurons_size( topv )
+                          , dbn->neurons_size( sourcev )
+                          );
+        ops.update_biases( *streams[streami]
+                         , dmemory->biases_ptr( sourcev, bufc )
+                         , dmemory->biases_ptr( sourcev, bufb )
+                         , dmemory->bias_deltas_ptr( sourcev, bufc )
+                         , dbn->neurons_size( sourcev )
+                         );
+      }
+      ops.update_biases( *streams[streami]
+                       , dmemory->biases_ptr( topv, bufc )
+                       , dmemory->biases_ptr( topv, bufb )
+                       , dmemory->bias_deltas_ptr( topv, bufc )
+                       , dbn->neurons_size( topv )
+                       );
+
+
+      ////////////////////////////////////////////////////
+      // all done... record the exec_end event
+      // count number of batches
+      // remember in zzz which buffer was written to this iteration in case its' the last one
       
       exec_end[bufa].record( *(streams[streami]) );
-
       num_batches_trained++;
       zzz = i;
       if( time_to_stop )

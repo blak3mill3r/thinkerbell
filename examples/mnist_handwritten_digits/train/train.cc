@@ -15,18 +15,21 @@
 #include <thinkerbell/deep_belief_network/scheduler.h>
 #include <thinkerbell/deep_belief_network/stats.h>
 
+//#define A_SIZE 784                   // the 28x28 pixel handwritten digit image
+//#define B_SIZE 512                   // 1st level feature detectors
+//#define C_SIZE 512                   // 2nd level feature detectors
+//#define D_SIZE 2048                  // 3rd level feature detectors
+//#define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
-#define B_SIZE 32                   // 1st level feature detectors
-#define C_SIZE 32                   // 2nd level feature detectors
-#define D_SIZE 64                  // 3rd level feature detectors
+#define B_SIZE 16                   // 1st level feature detectors
+#define C_SIZE 16                   // 2nd level feature detectors
+#define D_SIZE 32                  // 3rd level feature detectors
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define BATCH_SIZE 16
 #define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
-#define WEIGHT_DECAY 1.0
-#define BIAS_DECAY  1.0
-//#define WEIGHT_DECAY (1.0-(learning_rate*1.0))
-//#define BIAS_DECAY (1.0-(learning_rate*1.0))
+#define WEIGHT_COST 0.0002
+#define MOMENTUM  0.0 // FIXME
 
 #define TRAIN_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
 #define TRAIN_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
@@ -59,10 +62,10 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
   }
 }
 
-void trainefy(DBN &dbn, float learning_rate, float weight_decay, float bias_decay)
+void trainefy(DBN &dbn, float learning_rate, float weight_cost, float momentum)
 {
   // init scheduler
-  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate, weight_decay, bias_decay );
+  DBNScheduler scheduler( &dbn, BATCH_SIZE, NUM_BATCHES_ON_DEVICE, NUM_BATCHES_ON_HOST, prepare_examples, learning_rate, weight_cost, momentum );
   
   Logger::log("--Training begins!");
   
@@ -196,24 +199,24 @@ int main(int argc, char** argv)
 
     for( int z=0; z<numlabels; ++z )
     {
-      for( int kk=0; kk<16;++kk) digit_labels[16*z+kk] = 0.0;
-      digit_labels[16*z] = 1.0;
-      //digit_labels[16*z + (digit_labels_uchar[z])] = 1.0;
+      for( int kk=0; kk<16;++kk) digit_labels[16*z+kk] = 0.5;
+      digit_labels[16*z + (digit_labels_uchar[z])] = 1.0;
+      //digit_labels[16*z] = 1.0;
     }
 
     free(digit_labels_uchar);
   }
 
   // randomize the weights we are about to train
-  //dbn.m_graph[edge_ab].rbm->randomize_weights();
-  //dbn.m_graph[edge_bc].rbm->randomize_weights();
-  //dbn.m_graph[edge_cd].rbm->randomize_weights();
-  //dbn.m_graph[edge_ld].rbm->randomize_weights();
+  dbn.m_graph[edge_ab].rbm->randomize_weights();
+  dbn.m_graph[edge_bc].rbm->randomize_weights();
+  dbn.m_graph[edge_cd].rbm->randomize_weights();
+  dbn.m_graph[edge_ld].rbm->randomize_weights();
 
   // unmask A & B
-  //dbn.unmask( vA );
-  //dbn.unmask( vB );
-  dbn.unmask( vC );
+  dbn.unmask( vA );
+  dbn.unmask( vB );
+  //dbn.unmask( vC );
   //dbn.unmask( vD );
   //dbn.unmask( vL );
   cout << "modified the dbn..." << endl;
@@ -223,7 +226,7 @@ int main(int argc, char** argv)
   cin >> learning_rate;
 
   lgo_again:
-  trainefy(dbn, learning_rate, WEIGHT_DECAY, BIAS_DECAY);
+  trainefy(dbn, learning_rate, WEIGHT_COST, MOMENTUM);
 
   stats.print_training_weights_and_biases();
   

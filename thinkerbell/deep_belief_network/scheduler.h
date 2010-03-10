@@ -19,9 +19,9 @@ namespace thinkerbell {
 class DBNScheduler : noncopyable
 {
 private:
-  float learning_rate; // weight and bias adjustments are scaled by this factor
-  float weight_decay; // weights are scaled by this factor each training step
-  float bias_decay; // biases are scaled by this factor each training step
+  float learning_rate; // weight and bias delta adjustments are scaled by this factor
+  float weight_cost;
+  float momentum;
   int num_batches_trained;
   int batch_size;
   int num_example_batches;
@@ -47,8 +47,8 @@ public:
               , int num_example_batches_on_host_ 
               , void (*new_examples_callback_)(const std::string, float *)
               , float learning_rate_
-              , float weight_decay_
-              , float bias_decay_
+              , float weight_cost_
+              , float momentum_
               );
 
   void stop() { time_to_stop = true; }

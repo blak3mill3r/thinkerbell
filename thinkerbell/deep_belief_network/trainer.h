@@ -68,7 +68,7 @@ public:
     }
   }
 
-  int get_random_example_offset()
+  int get_random_example_index()
     { return ( rand() % num_batches ); }
 
   float * get_example_batch(const std::string name, int offset)

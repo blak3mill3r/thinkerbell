@@ -1,28 +1,29 @@
+what's wrong is
+I'm always binary activating everything but input, but it should be
+the positive phase, binary activate the top neurons
+the negative phase, just energize the top neurons
+
+
+
 TODO
 momentum
-  new mem space weight_deltas, 3-buffers, still 3 for weight buffers too
-  posprods (probability-deltas?)
-  positive probability deltas:
-    before positive phase:
-      weight-delta-bufc element-wise reading bufb                    f(x) = x * momentum
-    positive phase:
-      weight_update, adding to contents of weight-delta-bufc:        f(x) = x + epsilonw*pos-probability-delta/batch_size
-    negative phase:
-      weight_update, subtracting from contents of weight-delta-bufc: f(x) = x - epsilonw*neg-probability-deltas/batch_size
-    error kernel: element wise sum of (reality-fantasy)^2
-    update
-      weight decay, subtracting from contents of bufc                f(x) = x - epsilonw*weightcost*weight
-      weight update, weight-bufc = weight-bufb + weight-delta-bufc
+  DONE new mem space weight_deltas, 3-buffers, still 3 for weight buffers too
+       positive probability deltas:
+         before positive phase:
+  DONE     weight-delta-bufc element-wise reading bufb               f(x) = x' * momentum
+  DONE     bias-delta-bufc element-wise reading bufb                 f(x) = x' * momentum
+         positive phase:
+  DONE     weight_adjustment, adding to contents of weight-delta-bufc:   f(x) = x + epsilonw*pos-probability-delta/batch_size
+  DONE     bias_adjustment adding to contents of bias-delta-bufc         f(x) = x + epsilonvb*reality-batch/batch_size
+         negative phase:
+  DONE     weight_adjustment, subtracting from weight-delta-bufc:        f(x) = x - epsilonw*neg-probability-deltas/batch_size
+  DONE     bias_adjustment subtracting from bias-delta-bufc              f(x) = x - epsilonvb*fantasy-batch/batch_size
+         error kernel: element wise sum of (reality-fantasy)^2
+         update
+           weight decay, subtracting from contents of weight-delta-bufc, using weights-bufc  f(x) = x - epsilonw*weightcost*weight
+           weight update, weight-bufc = weight-bufb + weight-delta-bufc
+           bias update, bias-bufc = bias-bufb + bias-delta-bufc   
       
-
-add a rms error kernel
-
-
-
-
-
-
-
 
 
 

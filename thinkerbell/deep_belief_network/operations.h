@@ -21,11 +21,16 @@ public:
     , module_rng_kernels("cubins/mersenne_twister_kernels.cubin")
     , mmul(              module_rbm_kernels, "mmul" )
     , mmultb(            module_rbm_kernels, "mmul_transpose_b" )
+    , activate_neurons(  module_rbm_kernels, "activate_neurons" )
     , weight_adjustment( module_rbm_kernels, "weight_adjustment" )
     , bias_adjustment(   module_rbm_kernels, "bias_adjustment" )
-    , activate_neurons(  module_rbm_kernels, "activate_neurons" )
     , weight_decay(      module_rbm_kernels, "weight_decay" )
-    , bias_decay(        module_rbm_kernels, "bias_decay" )
+    , weight_update(     module_rbm_kernels, "weight_update" )
+    , bias_update(       module_rbm_kernels, "bias_update" )
+   // , error_squared(     module_rbm_kernels, "error_squared" )
+    , weight_friction(   module_rbm_kernels, "weight_friction" )
+    , bias_friction(     module_rbm_kernels, "bias_friction" )
+/*-----------------------------------------------------------------*/
     , random(            module_rng_kernels,  "RandomGPU" )
     , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
   {}
@@ -40,44 +45,102 @@ public:
     }
   }
 
+  void decelerate_weights( const Stream &stream
+                         , DevicePtr target_weight_deltas
+                         , DevicePtr source_weight_deltas
+                         , float momentum
+                         , int weights_width
+                         , int weights_height
+                         )
+                         {
+                           weight_friction.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1);
+                           weight_friction.go( weights_width / BLOCK_SIZE
+                                             , weights_height / BLOCK_SIZE
+                                             , stream
+                                             , target_weight_deltas
+                                             , source_weight_deltas
+                                             , momentum
+                                             , weights_width
+                                             );
+                         }
+  
+  void decelerate_biases( const Stream &stream
+                        , DevicePtr target_bias_deltas
+                        , DevicePtr source_bias_deltas
+                        , float momentum
+                        , int neurons_size
+                        )
+                        {
+                          bias_friction.setBlockShape( BLOCK_SIZE, 1, 1);
+                          bias_friction.go( neurons_size / BLOCK_SIZE
+                                          , 1
+                                          , stream
+                                          , target_bias_deltas
+                                          , source_bias_deltas
+                                          , momentum
+                                          , neurons_size
+                                          );
+                        }
+  
+  void update_weights( const Stream &stream
+                     , DevicePtr target_weights
+                     , DevicePtr source_weights
+                     , DevicePtr weight_deltas
+                     , int target_neurons_size
+                     , int source_neurons_size
+                     )
+                     {
+                       weight_update.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1);
+                       weight_update.go( target_neurons_size / BLOCK_SIZE
+                                       , source_neurons_size / BLOCK_SIZE
+                                       , stream
+                                       , target_weights
+                                       , source_weights
+                                       , weight_deltas
+                                       , target_neurons_size
+                                       );
+                     }
+  
+  void update_biases( const Stream &stream
+                    , DevicePtr target_biases
+                    , DevicePtr source_biases
+                    , DevicePtr bias_deltas
+                    , int neurons_size
+                    )
+                    {
+                      bias_update.setBlockShape( BLOCK_SIZE, 1, 1);
+                      bias_update.go( neurons_size / BLOCK_SIZE
+                                    , 1
+                                    , stream
+                                    , target_biases
+                                    , source_biases
+                                    , bias_deltas
+                                    , neurons_size
+                                    );
+                    }
+  
+
   void decay_weights( const Stream &stream
+                    , DevicePtr weight_deltas
                     , DevicePtr weights
-                    , int width
-                    , int height
-                    , float decay
+                    , int target_neurons_size
+                    , int source_neurons_size
+                    , float scale
                     )
                     {
                       weight_decay.setBlockShape(BLOCK_SIZE,BLOCK_SIZE,1);
-                      weight_decay.go( width / BLOCK_SIZE
-                                     , height / BLOCK_SIZE
+                      weight_decay.go( target_neurons_size / BLOCK_SIZE
+                                     , source_neurons_size / BLOCK_SIZE
                                      , stream
+                                     , weight_deltas
                                      , weights
-                                     , width
-                                     , decay
+                                     , target_neurons_size
+                                     , scale
                                      );
                       #ifdef DEBUG_SYNCHRONIZE
                       wait_for_everything_debug("decay weights");
                       #endif
                     }
-
-  void decay_biases( const Stream &stream
-                   , DevicePtr biases
-                   , int size
-                   , float decay
-                   )
-                   {
-                     bias_decay.setBlockShape(BLOCK_SIZE,1,1);
-                     bias_decay.go( size / BLOCK_SIZE
-                                  , 1
-                                  , stream
-                                  , biases
-                                  , size
-                                  , decay
-                                  );
-                     #ifdef DEBUG_SYNCHRONIZE
-                     wait_for_everything_debug("decay biases");
-                     #endif
-                   }
 
   void generate_randoms( const Stream &stream
                        , DevicePtr randoms
@@ -148,7 +211,7 @@ public:
                                            , randoms
                                            , biases
                                            , neurons_size
-                                           , 0//( binary ? 1 : 0 )                // binary activation
+                                           , 0 //( binary ? 1 : 0 )                // binary activation
                                            );
                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_vertex");
@@ -210,8 +273,7 @@ public:
                                  , int target_neurons_size
                                  , int source_neurons_size
                                  , int batch_size
-                                 , DevicePtr weights_current
-                                 , DevicePtr weights_to_modify
+                                 , DevicePtr weight_deltas
                                  , DevicePtr source_neurons
                                  , DevicePtr target_neurons
                                  , float learning_rate
@@ -222,10 +284,9 @@ public:
                                    weight_adjustment.go( target_neurons_size / BLOCK_SIZE
                                                        , source_neurons_size / BLOCK_SIZE
                                                        , stream
-                                                       , weights_to_modify
+                                                       , weight_deltas
                                                        , source_neurons
                                                        , target_neurons
-                                                       , weights_current
                                                        , batch_size
                                                        , target_neurons_size
                                                        , learning_rate
@@ -240,7 +301,7 @@ public:
                                  , int target_neurons_size
                                  , int source_neurons_size
                                  , int batch_size
-                                 , DevicePtr weights_to_modify
+                                 , DevicePtr weight_deltas
                                  , DevicePtr source_neurons
                                  , DevicePtr target_neurons
                                  , float learning_rate
@@ -250,10 +311,9 @@ public:
                                    weight_adjustment.go( target_neurons_size / BLOCK_SIZE
                                                        , source_neurons_size / BLOCK_SIZE
                                                        , stream
-                                                       , weights_to_modify
+                                                       , weight_deltas
                                                        , source_neurons
                                                        , target_neurons
-                                                       , weights_to_modify
                                                        , batch_size
                                                        , target_neurons_size
                                                        , learning_rate
@@ -267,8 +327,7 @@ public:
   void positive_bias_adjustment( const Stream &stream
                                , int neurons_size
                                , int batch_size
-                               , DevicePtr biases_current
-                               , DevicePtr biases_to_modify
+                               , DevicePtr bias_deltas
                                , DevicePtr neuron_energies
                                , float learning_rate
                                )
@@ -277,8 +336,7 @@ public:
                                  bias_adjustment.go( neurons_size / BLOCK_SIZE
                                                    , 1
                                                    , stream
-                                                   , biases_to_modify
-                                                   , biases_current
+                                                   , bias_deltas
                                                    , neuron_energies
                                                    , neurons_size
                                                    , batch_size
@@ -293,7 +351,7 @@ public:
   void negative_bias_adjustment( const Stream &stream
                                , int neurons_size
                                , int batch_size
-                               , DevicePtr biases_to_modify
+                               , DevicePtr bias_deltas
                                , DevicePtr neuron_energies
                                , float learning_rate
                                )
@@ -302,8 +360,7 @@ public:
                                  bias_adjustment.go( neurons_size / BLOCK_SIZE
                                                    , 1
                                                    , stream
-                                                   , biases_to_modify
-                                                   , biases_to_modify
+                                                   , bias_deltas
                                                    , neuron_energies
                                                    , neurons_size
                                                    , batch_size
@@ -346,16 +403,19 @@ private:
 
   Function mmul
          , mmultb
+         , activate_neurons
          , weight_adjustment
          , bias_adjustment
-         , activate_neurons
          , weight_decay
-         , bias_decay
+         , weight_update
+         , bias_update
+         //, error_squared
+         , weight_friction
+         , bias_friction
          , random
          , box_muller
          ;
 
- 
 };
 
 } // end namespace thinkerbell

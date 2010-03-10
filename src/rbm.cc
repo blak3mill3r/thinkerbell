@@ -17,7 +17,7 @@ float gaussian_random()
 {
   static mt19937 rng(static_cast<unsigned> (time(NULL)));
   // Gaussian probability distribution
-  normal_distribution<float> dist(0.0, 0.000001);
+  normal_distribution<float> dist(0.0, 0.01);
   variate_generator<mt19937&, normal_distribution<float> >  normal_sampler(rng, dist);
   return normal_sampler();
 }

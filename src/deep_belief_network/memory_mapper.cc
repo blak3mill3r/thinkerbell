@@ -66,7 +66,7 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
     }
   }
 
-  // prepare biases_ptr map according to biases_memory_layout_map 
+  // prepare biases_ptr_map according to biases_memory_layout_map 
   {
     DevicePtr currentp = biases_memory_ptr;
     pair<Vertex, pair<int,bool> > vv;
@@ -77,7 +77,7 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
   }
 
   {
-    // prepare bias_deltas_ptr map according to bias_deltas_memory_layout_map 
+    // prepare bias_deltas_ptr_map according to bias_deltas_memory_layout_map 
     DevicePtr currentp = bias_deltas_memory_ptr;
     pair<Vertex, int> vv;
     BOOST_FOREACH( vv, make_pair(bias_deltas_memory_layout_map.begin(),bias_deltas_memory_layout_map.end()) )
@@ -88,7 +88,7 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
       int buffer_size = memory_requirement / 3;
       assert(buffer_size*3==memory_requirement);
       for( int i = 0; i < 3; ++i )
-        (biases_ptr_map[v]).push_back( currentp + (sizeof(float) * buffer_size * i ) );
+        (bias_deltas_ptr_map[v]).push_back( currentp + (sizeof(float) * buffer_size * i ) );
       currentp = currentp + (sizeof(float) * memory_requirement);
     }
   }
@@ -290,6 +290,8 @@ int DBNMemoryMapper::bias_deltas_memory_size()
   pair<Vertex,int> ee;
   BOOST_FOREACH( ee, make_pair( bias_deltas_memory_layout_map.begin(), bias_deltas_memory_layout_map.end()))
   {
+    cout << "bias_deltas_memory_size() ... vertex " << ee.first << " needs  " << ee.second << endl;
+
     total_size += ee.second;
   }
 
