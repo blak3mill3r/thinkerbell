@@ -32,12 +32,13 @@
 #include "visualize_ui.h"
 #include "hackage.h"
 
-#define TEST_IMAGES_FILENAME "../data/t10k-images-idx3-ubyte"
-#define TEST_LABELS_FILENAME "../data/t10k-labels-idx1-ubyte"
-#define NUM_IMAGES 10000
+// FIXME using the training data for testing
+//#define TEST_IMAGES_FILENAME "../data/t10k-images-idx3-ubyte"
+//#define TEST_LABELS_FILENAME "../data/t10k-labels-idx1-ubyte"
+#define NUM_IMAGES 60000
 
-//#define TEST_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
-//#define TEST_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
+#define TEST_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
+#define TEST_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
 
 using namespace std;
 using namespace thinkerbell;
@@ -45,14 +46,13 @@ using namespace thinkerbell;
 namespace po = boost::program_options;
 
 float digit_images[NUM_IMAGES*28*28]; // the MNIST test image set, converted to floats in range 0-1
-float digit_labels[NUM_IMAGES*1];
 
 VisualizeUI * visualize_ui;
 DBNHackage * dbn_hackage;
 
-void perceive_and_reconstruct( float* original, float* reconstruction )
+void perceive_and_reconstruct( float* original, float* fantasy_image, float* fantasy_labels )
 {
-  dbn_hackage->perceive_and_reconstruct( original, reconstruction );
+  dbn_hackage->perceive_and_reconstruct( original, fantasy_image, fantasy_labels );
 }
 
 int main(int argc, char** argv)

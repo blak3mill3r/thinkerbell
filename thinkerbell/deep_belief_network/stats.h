@@ -35,6 +35,8 @@ public:
 
   void print_training_weights_and_biases();
   void print_overview();
+  void print_vertex(Vertex v);
+  void print_edge(Edge e);
  
 private:
   DBN * dbn;

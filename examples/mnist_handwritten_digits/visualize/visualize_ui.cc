@@ -8,27 +8,33 @@ void VisualizeUI::cb_example_spinner_i(Fl_Spinner* o, void*) {
   original->set_digit_image( &digit_images[28*28 * (int)o->value() ] );
 original->redraw();
 
-float reconstruction_image[28*28];
-(*reconstruction_callback)( &digit_images[28*28*(int)o->value()], reconstruction_image );
-reconstruction->set_digit_image( reconstruction_image );
-reconstruction->redraw();
+crunch_numbers();
 }
 void VisualizeUI::cb_example_spinner(Fl_Spinner* o, void* v) {
   ((VisualizeUI*)(o->parent()->user_data()))->cb_example_spinner_i(o,v);
 }
 
 void VisualizeUI::cb_again_i(Fl_Button*, void*) {
-  float reconstruction_image[28*28];
-(*reconstruction_callback)( &digit_images[28*28*(int)example_spinner->value()], reconstruction_image );
-reconstruction->set_digit_image( reconstruction_image );
-reconstruction->redraw();
+  crunch_numbers();
 }
 void VisualizeUI::cb_again(Fl_Button* o, void* v) {
   ((VisualizeUI*)(o->parent()->user_data()))->cb_again_i(o,v);
 }
 
-VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) ) {
-  { visualize_window = new Fl_Double_Window(175, 160);
+void VisualizeUI::crunch_numbers() {
+  int examplei = (int)example_spinner->value();
+float reconstruction_image[28*28];
+float reconstruction_labels[16];
+
+(*reconstruction_callback)( &digit_images[28*28*examplei], reconstruction_image, reconstruction_labels );
+reconstruction->set_digit_image( reconstruction_image );
+label_graph->set_labels( reconstruction_labels );
+reconstruction->redraw();
+label_graph->redraw();
+}
+
+VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*, float*) ) {
+  { visualize_window = new Fl_Double_Window(175, 185);
     visualize_window->user_data((void*)(this));
     { example_spinner = new Fl_Spinner(60, 1, 40, 24, "example");
       example_spinner->minimum(0);
@@ -36,6 +42,17 @@ VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_
       example_spinner->value(0);
       example_spinner->callback((Fl_Callback*)cb_example_spinner);
     } // Fl_Spinner* example_spinner
+    { label_graph = new LabelWidget(0, 115, 128, 64, "opinion");
+      label_graph->box(FL_NO_BOX);
+      label_graph->color((Fl_Color)247);
+      label_graph->selection_color(FL_BACKGROUND_COLOR);
+      label_graph->labeltype(FL_NORMAL_LABEL);
+      label_graph->labelfont(0);
+      label_graph->labelsize(14);
+      label_graph->labelcolor(FL_FOREGROUND_COLOR);
+      label_graph->align(Fl_Align(FL_ALIGN_TOP));
+      label_graph->when(FL_WHEN_RELEASE);
+    } // LabelWidget* label_graph
     { original = new DigitWidget(16, 51, 28, 28, "original");
       original->box(FL_NO_BOX);
       original->color((Fl_Color)247);

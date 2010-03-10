@@ -16,15 +16,17 @@
 #include <thinkerbell/deep_belief_network/stats.h>
 
 #define A_SIZE 784                   // the 28x28 pixel handwritten digit image
-#define B_SIZE 1024                  // 1st level feature detectors
-#define C_SIZE 2048                  // 2nd level feature detectors
-#define D_SIZE 4096                  // 3rd level feature detectors
+#define B_SIZE 16                   // 1st level feature detectors
+#define C_SIZE 512                   // 2nd level feature detectors
+#define D_SIZE 2048                  // 3rd level feature detectors
 #define L_SIZE 16                    // 10 neurons for the digits 0-9 and 6 unused neurons
 #define BATCH_SIZE 16
 #define NUM_BATCHES_ON_DEVICE 1
 #define NUM_BATCHES_ON_HOST (60000/BATCH_SIZE)
-#define WEIGHT_DECAY (1.0-(learning_rate*0.15))
-#define BIAS_DECAY   (1.0-(learning_rate*0.15))
+#define WEIGHT_DECAY 1.0
+#define BIAS_DECAY  1.0
+//#define WEIGHT_DECAY (1.0-(learning_rate*1.0))
+//#define BIAS_DECAY (1.0-(learning_rate*1.0))
 
 #define TRAIN_IMAGES_FILENAME "../data/train-images-idx3-ubyte"
 #define TRAIN_LABELS_FILENAME "../data/train-labels-idx1-ubyte"
@@ -35,7 +37,7 @@ using namespace thinkerbell;
 namespace po = boost::program_options;
 
 float digit_images[60000*28*28]; // the MNIST training image set, converted to floats in range 0-1
-float digit_labels[60000*1];
+float digit_labels[60000*16];    // the training label set, 16 neurons represent 0-9 and 6 unused neurons
 int num_batches_trained = 0;
 
 // the examples callback
@@ -46,6 +48,13 @@ void prepare_examples(const std::string neurons_name, float *example_buffer)
     std::memcpy( example_buffer
                , digit_images
                , sizeof(digit_images)
+               );
+  }
+  else if(neurons_name == "digit labels")
+  {
+    std::memcpy( example_buffer
+               , digit_labels
+               , sizeof(digit_labels)
                );
   }
 }
@@ -60,7 +69,7 @@ void trainefy(DBN &dbn, float learning_rate, float weight_decay, float bias_deca
   // start training
   thread scheduler_thread( ref(scheduler) );
   
-  sleep(10);
+  sleep(8);
   scheduler.stop();
   scheduler_thread.join();
   num_batches_trained += scheduler.get_num_batches_trained();
@@ -158,21 +167,52 @@ int main(int argc, char** argv)
     infile.read((char*)digit_images_uchar, num_values);
 
     for( int z=0; z<num_values; ++z ) // scale to 0-0.5 range and bias +0.5
-      digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
+      digit_images[z] = 0.0 + (digit_images_uchar[z]/255.0);
+      //digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
 
     free(digit_images_uchar);
   }
 
+  // read labels from MNIST training set
+  // convert to a set of 16 neuron activations
+  // all but one will be 0
+  // the neuron representing the label will be 1.0
+  {
+    ifstream infile;
+    infile.open(TRAIN_LABELS_FILENAME, ios::binary | ios::in);
+    unsigned int magicnumber, numlabels;
+    infile.read((char *)&magicnumber + 3, 1); // bloody ass-endianness
+    infile.read((char *)&magicnumber + 2, 1);
+    infile.read((char *)&magicnumber + 1, 1);
+    infile.read((char *)&magicnumber + 0, 1);
+    infile.read((char *)&numlabels + 3, 1);
+    infile.read((char *)&numlabels + 2, 1);
+    infile.read((char *)&numlabels + 1, 1);
+    infile.read((char *)&numlabels + 0, 1);
+    assert( magicnumber == 0x0801 );
+    assert( numlabels == 60000 );
+    unsigned char * digit_labels_uchar = (unsigned char *)std::malloc( numlabels );
+    infile.read((char*)digit_labels_uchar, numlabels);
+
+    for( int z=0; z<numlabels; ++z )
+    {
+      for( int kk=0; kk<16;++kk) digit_labels[16*z+kk] = 0.5;
+      digit_labels[16*z + (digit_labels_uchar[z])] = 1.0;
+    }
+
+    free(digit_labels_uchar);
+  }
+
   // randomize the weights we are about to train
-  //dbn.m_graph[edge_ab].rbm->randomize_weights();
+  dbn.m_graph[edge_ab].rbm->randomize_weights();
   dbn.m_graph[edge_bc].rbm->randomize_weights();
-  //dbn.m_graph[edge_cd].rbm->randomize_weights();
-  //dbn.m_graph[edge_ld].rbm->randomize_weights();
+  dbn.m_graph[edge_cd].rbm->randomize_weights();
+  dbn.m_graph[edge_ld].rbm->randomize_weights();
 
   // unmask A & B
   dbn.unmask( vA );
   dbn.unmask( vB );
-  dbn.unmask( vC );
+  //dbn.unmask( vC );
   //dbn.unmask( vD );
   //dbn.unmask( vL );
   cout << "modified the dbn..." << endl;
@@ -199,9 +239,10 @@ int main(int argc, char** argv)
   }
   cout << "done!" << endl;
 
-  //cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
-  //cin >> learning_rate;
-  if((num_batches_trained/60000.0) < 3.0 )
+  cout << "\n------------------------------------------\nenter a learning rate, or 0 to stop" << endl;
+  cin >> learning_rate;
+  //if((num_batches_trained*BATCH_SIZE/60000.0) < 10000.0 )
+  if(learning_rate > 0.00000001 )
     goto lgo_again;
 
   // save to file

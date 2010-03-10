@@ -111,6 +111,7 @@ public:
                             , DevicePtr example
                             , DevicePtr neurons
                             , DevicePtr biases
+                            , DevicePtr randoms
                             )
                             {
                               activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
@@ -119,10 +120,10 @@ public:
                                                  , stream
                                                  , example          // copy from example
                                                  , neurons          // write to neurons
-                                                 , example          // ignored ... it's illegal to pass bad pointers to kernels, so we are passing example
+                                                 , randoms
                                                  , biases
                                                  , neurons_size
-                                                 , 0            // not a binary activation, i.e. the values written will be the sigmoid(energies)
+                                                 , 0          // not a binary activation, i.e. the values written will be the sigmoid(energies)
                                                  );
                               #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_input_vertex");
@@ -147,7 +148,7 @@ public:
                                            , randoms
                                            , biases
                                            , neurons_size
-                                           , ( binary ? 1 : 0 )                // binary activation
+                                           , 0//( binary ? 1 : 0 )                // binary activation
                                            );
                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_vertex");
@@ -329,7 +330,10 @@ public:
                               );
                   stream.synchronize();
                   for(int ni=0; ni<neurons_size; ++ni)
-                    cout << ni << " = " << tempneurons[ni] << "\t";
+                  {
+                    cout << ( (tempneurons[ni]==0) ? ' ' : 'x' );
+                    if(ni%28==0) cout << endl;
+                  }
                   cout << endl;
                   free(tempneurons);
                 }

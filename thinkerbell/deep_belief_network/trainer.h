@@ -72,7 +72,9 @@ public:
     { return ( rand() % num_batches ); }
 
   float * get_example_batch(const std::string name, int offset)
-    { return (example_buffer[name] + (offset * example_batch_size[name])); }
+  {
+    return (example_buffer[name] + (offset * example_batch_size[name]));
+  }
 
   float * get_example_buffer( const std::string name )
     { return example_buffer[name]; }

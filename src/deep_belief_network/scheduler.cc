@@ -2,6 +2,8 @@
 
 #define MERSENNE_TWISTER_DAT_FILE "../data/MersenneTwister.dat"
 
+#define AGS_ITERATIONS 1
+
 namespace thinkerbell {
 
 DBNScheduler::DBNScheduler( DBN * dbn_
@@ -20,10 +22,10 @@ DBNScheduler::DBNScheduler( DBN * dbn_
   , time_to_stop( false )
   , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
   , learning_rate( learning_rate_ )
-  , new_examples_callback(new_examples_callback_)
-  , weight_decay(weight_decay_)
-  , bias_decay(bias_decay_)
-  , num_batches_trained(0)
+  , new_examples_callback( new_examples_callback_ )
+  , weight_decay( weight_decay_ )
+  , bias_decay( bias_decay_ )
+  , num_batches_trained( 0 )
 {}
 
 void DBNScheduler::init_rng()
@@ -51,14 +53,12 @@ void DBNScheduler::loadMTGPU(const char *fname){
 //Initialize/seed twister for current GPU context
 void DBNScheduler::seedMTGPU(unsigned int seed){
     int i;
-    //Need to be thread-safe
     mt_struct_stripped *MT = (mt_struct_stripped *)std::malloc(MT_RNG_COUNT * sizeof(mt_struct_stripped));
 
     for(i = 0; i < MT_RNG_COUNT; i++){
         MT[i]      = h_MT[i];
         MT[i].seed = seed;
     }
-    //cout <<" Copy random configs to device " << endl;
     cuda::memcpy( dmemory->random_configs_ptr(), MT, sizeof(h_MT));
 
     free(MT);
@@ -95,7 +95,7 @@ void DBNScheduler::operator()()
   << endl;  */
 
 
-  { Logger::log("got context"); // anonymous scope for the DeviceMemory auto_ptrs (they need to be destroyed before context)
+  { // anonymous scope for the DeviceMemory auto_ptrs (they need to be destroyed before context)
     // allocate device memory for the algorithm
     auto_ptr<DeviceMemory> weights_memory(        new DeviceMemory( dmemory->weights_memory_size()        ) );
     auto_ptr<DeviceMemory> biases_memory(         new DeviceMemory( dmemory->biases_memory_size()        ) );
@@ -103,7 +103,6 @@ void DBNScheduler::operator()()
     auto_ptr<DeviceMemory> temporary_memory(      new DeviceMemory( dmemory->temporary_memory_size()      ) );
     auto_ptr<DeviceMemory> randoms_memory(        new DeviceMemory( dmemory->randoms_memory_size()        ) );
     auto_ptr<DeviceMemory> random_configs_memory( new DeviceMemory( dmemory->random_configs_memory_size() ) );
-    Logger::log("got device mem");
 
     dmemory->allocate_device_memory( weights_memory->ptr()
                                    , biases_memory->ptr()
@@ -125,6 +124,8 @@ void DBNScheduler::operator()()
 
     // get new digit image examples into the trainer's buffer (host memory):
     (*new_examples_callback)( "digit image", trainer->get_example_buffer( "digit image" ) );
+    if( !dbn->is_masked( dbn->find_neurons_by_name( "digit labels" )) )
+      (*new_examples_callback)( "digit labels", trainer->get_example_buffer( "digit labels" ) );
 
     // transfer weights to device, all 3 buffers
     // FIXME wasteful... not all of these are triple buffered so sometimes we are copying 3 times to the same device memory
@@ -163,14 +164,14 @@ void DBNScheduler::operator()()
 
     // first 2 steps are different:
     // there is no batch finishing with the current buffer
-    exec_end[2].record( *streams[0] );
-    exec_end[0].record( *streams[1] );
+    //exec_end[2].record( *streams[0] );
+    //exec_end[0].record( *streams[1] );
 
     int zzz = 0;
     while(true)
     for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
     {
-      // this gives us three phases
+                            // this gives us three phases
       int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
       int bufb = ((i+1)%3); // bufb weights will be used as the source of weights (because it was written to last step)
       int bufc = ((i+2)%3); // bufc weights will be written to because it will be bufc next iteration and will be used for activation steps
@@ -199,19 +200,32 @@ void DBNScheduler::operator()()
       {
         if(dbn->is_input_vertex(v))
         { // v's activation amounts to setting neuron energies from a training example
+          // if we're in need of more randoms before we can set v's activations, generate more now
+          if(random_offset > 5860*4096-dmemory->neurons_batch_size(v)) // better idea maybe: 3 random buffers this size?
+          {
+            streams[0]->synchronize();  
+            streams[1]->synchronize();  // FIXME for now we pause everything to generate new randoms
+            generate_more_randoms( *streams[streami], ops );
+            streams[streami]->synchronize();
+            random_offset = 0;
+          }
+
           ops.activate_input_vertex( dbn->neurons_size(v)
                                    , batch_size
                                    , (*streams[streami])
                                    , dmemory->example_ptr(v, bufa)
                                    , dmemory->neurons_ptr(v, bufa)
                                    , dmemory->biases_ptr(v, bufa)
+                                   , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                                    );
-          /*cout << "reality: " << dbn->neurons_name(v) << endl;
+          /*
+          cout << "reality: " << dbn->neurons_name(v) << endl;
           ops.debuggify( *streams[streami]
                        , dmemory->neurons_ptr(v, bufa)
                        , dbn->neurons_size(v)
                        , dmemory->neurons_batch_size(v) 
-                       );  */
+                       ); 
+          */
         }
         else
         { // v gets activated by each of its in-edges:
@@ -252,7 +266,6 @@ void DBNScheduler::operator()()
                              , dmemory->neurons_ptr(v, bufa)
                              , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                              , dmemory->biases_ptr(v, bufa)
-                             , true
                              );
     
           //cout << "Debuggify vertex " << dbn->neurons_name(v) << endl;
@@ -311,8 +324,11 @@ void DBNScheduler::operator()()
                                   , learning_rate
                                   );
 
-      // Alternating Gibbs sampling begins here
-      // FIXME we should support more than 1 AGS iteration here allowing us to get closer to max-likelyhood learning at the expense of time
+      ////////////////
+      // AGS BEGINS //
+      ////////////////
+      for(int agsi = 0; agsi < AGS_ITERATIONS; ++agsi)
+    {
       // first down-activate each source vertex of the top vertex
       BOOST_FOREACH( Edge e, in_edges( top, dbn->m_graph ) )
       {
@@ -341,15 +357,17 @@ void DBNScheduler::operator()()
                            , dmemory->neurons_ptr(sourcev, bufa)
                            , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(sourcev))))
                            , dmemory->biases_ptr(sourcev, bufa)
-                           , !dbn->is_input_vertex(sourcev)
+                           , true//!dbn->is_input_vertex(sourcev)
                            );
   
-          /*cout << "fantasy: " << dbn->neurons_name(sourcev) << endl;
+          /*
+          cout << "fantasy: " << dbn->neurons_name(sourcev) << endl;
           ops.debuggify( *streams[streami]
                        , dmemory->neurons_ptr(sourcev, bufa)
                        , dbn->neurons_size(sourcev)
                        , dmemory->neurons_batch_size(sourcev) 
-                       );  */
+                       ); 
+          */
       }
 
       // now up-activate the top vertex from each of its in-edges
@@ -386,6 +404,11 @@ void DBNScheduler::operator()()
                          , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(top))))
                          , dmemory->biases_ptr(top, bufa)
                          );
+
+      //////////////
+      // AGS ENDS //
+      //////////////
+    }
 
       // for each in-edge of the top vertex, do a negative weight adjustment
       // and a negative bias adjustment for the source vertex
@@ -435,15 +458,17 @@ void DBNScheduler::operator()()
                                   , dmemory->neurons_ptr(top, bufa)
                                   , learning_rate
                                   );
+/*
       ops.decay_biases( *streams[streami]
                       , dmemory->biases_ptr(top, bufc)
                       , dbn->neurons_size(top)
                       , bias_decay
                       );
+  */
       
       exec_end[bufa].record( *(streams[streami]) );
 
-      num_batches_trained += batch_size;
+      num_batches_trained++;
       zzz = i;
       if( time_to_stop )
         goto alldone;

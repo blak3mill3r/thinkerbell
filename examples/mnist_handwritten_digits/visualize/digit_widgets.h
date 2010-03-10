@@ -28,3 +28,16 @@ public:
   DigitWidget(int X, int Y, int W, int H, const char* L) : Fl_Box(X,Y,W,H,L) {}
   void set_digit_image(float* i);
 };
+
+// class LabelWidget
+class LabelWidget : public Fl_Box
+{
+  float digit_labels[16];
+  void draw();
+public:
+  LabelWidget(int X, int Y, int W, int H, const char* L) : Fl_Box(X,Y,W,H,L)
+  {
+    for(int kk=0; kk<16; ++kk) digit_labels[kk] = 0.0;
+  }
+  void set_labels(float* i);
+};

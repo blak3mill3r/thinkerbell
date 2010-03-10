@@ -28,35 +28,43 @@ void DBNStats::print_overview()
   }
 }
 
+void DBNStats::print_vertex(Vertex v)
+{
+  cout << "  --Vertex " << v << endl;
+  cout << "    * bias avg =\t"
+       << bias_avg(v)
+       << endl;
+  cout << "    * bias num + =\t"
+       << bias_num_positive(v)
+       << endl;
+  cout << "    * bias num - =\t"
+       << bias_num_negative(v)
+       << endl;
+}
+
+void DBNStats::print_edge( Edge e )
+{
+  cout << "  --Edge " << e << endl;
+  cout << "    * weight avg =\t"
+       << weight_avg(e)
+       << endl;
+  cout << "    * weight num + =\t"
+       << weight_num_positive(e)
+       << endl;
+  cout << "    * weight num - =\t"
+       << weight_num_negative(e)
+       << endl;
+}
+
 void DBNStats::print_training_weights_and_biases()
 {
   cout << "==STATS==" << endl;
   BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(), dbn->training_edges_end()) )
   {
-    Vertex sv = source( e, dbn->m_graph )
-         , tv = target( e, dbn->m_graph )
-         ;
-    cout << "  --Vertex " << sv << endl;
-    cout << "    * bias avg =\t"
-         << bias_avg(sv)
-         << endl;
-    cout << "    * bias num + =\t"
-         << bias_num_positive(sv)
-         << endl;
-    cout << "    * bias num - =\t"
-         << bias_num_negative(sv)
-         << endl;
-    cout << "  --Edge " << e << endl;
-    cout << "    * weight avg =\t"
-         << weight_avg(e)
-         << endl;
-    cout << "    * weight num + =\t"
-         << weight_num_positive(e)
-         << endl;
-    cout << "    * weight num - =\t"
-         << weight_num_negative(e)
-         << endl;
+    print_vertex(source( e, dbn->m_graph ));
+    print_edge(e);
   }
+  print_vertex(dbn->top_vertex());
 }
 
 float DBNStats::bias_sum( Vertex v )

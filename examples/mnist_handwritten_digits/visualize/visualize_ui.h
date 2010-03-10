@@ -10,15 +10,18 @@
 
 class VisualizeUI {
   float * digit_images; 
-  void (*reconstruction_callback)(float*, float*); 
+  void (*reconstruction_callback)(float*, float*, float*); 
+protected:
+  void crunch_numbers();
 public:
-  VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*) );
+  VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*, float*) );
   Fl_Double_Window *visualize_window;
 private:
   Fl_Spinner *example_spinner;
   void cb_example_spinner_i(Fl_Spinner*, void*);
   static void cb_example_spinner(Fl_Spinner*, void*);
 public:
+  LabelWidget *label_graph;
   DigitWidget *original;
   DigitWidget *reconstruction;
 private:

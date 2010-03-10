@@ -111,10 +111,12 @@ mmul_transpose_b( float* C
     C[c + wC * ty + tx] = Csub;
 }
 
+
+#define SIGMOID_STEEPNESS 1.0
 // the sigmoid function
 __device__ float sigmoid( float v )
 {
-  return 1.0 / ( 1.0 + __expf( -v ) );
+  return 1.0 / ( 1.0 + __expf( -v * SIGMOID_STEEPNESS ) );
 }
 
 extern "C"
@@ -131,6 +133,7 @@ activate_neurons( float* energies               // read from
   int batchi = BLOCK_SIZE*by + ty;
   int i = batchi*neurons_size + neuroni;
   float energy = sigmoid(energies[i]+biases[neuroni]);
+  //float random = (randoms[i]) + 0.5;
   float random = randoms[i];
   if(binary)
     activations[i] = ( energy > random ) ? 1.0 : 0.0 ;
