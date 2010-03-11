@@ -1,7 +1,17 @@
+Good stuff came with
+learning rate .01 for like 16 seconds on layer ab
+and then .0005 for a while
+
+initial weight distribution is really important, think it's goodish at mean=0 sigma=0.1
+
+
+
+
 what's wrong is
-I'm always binary activating everything but input, but it should be
-the positive phase, binary activate the top neurons
-the negative phase, just energize the top neurons
+when I do the negative bias delta adjusment
+top vertex has binary vals not probabilities
+NEED the probabilities to do the negative bias delta adjustment for the top vertex properly
+IOW we need a temporary memory space for just the top bias deltas
 
 
 
@@ -20,9 +30,9 @@ momentum
   DONE     bias_adjustment subtracting from bias-delta-bufc              f(x) = x - epsilonvb*fantasy-batch/batch_size
          error kernel: element wise sum of (reality-fantasy)^2
          update
-           weight decay, subtracting from contents of weight-delta-bufc, using weights-bufc  f(x) = x - epsilonw*weightcost*weight
-           weight update, weight-bufc = weight-bufb + weight-delta-bufc
-           bias update, bias-bufc = bias-bufb + bias-delta-bufc   
+  DONE     weight decay, subtracting from contents of weight-delta-bufc, using weights-bufc  f(x) = x - epsilonw*weightcost*weight
+  DONE     weight update, weight-bufc = weight-bufb + weight-delta-bufc
+  DONE     bias update, bias-bufc = bias-bufb + bias-delta-bufc   
       
 
 

@@ -39,7 +39,7 @@ void LabelWidget::draw()
   // draw a sort of bar graph to show the energy of each neuron
   unsigned char graph[ w() * h() ];
   memset( graph, 0, w()*h() );
-  int num_bars = 16;
+  int num_bars = 10;
   int bar_width = w() / num_bars;
   for(int kk=0; kk<num_bars; ++kk)
   {

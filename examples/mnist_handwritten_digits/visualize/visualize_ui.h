@@ -7,6 +7,7 @@
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Spinner.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Box.H>
 
 class VisualizeUI {
   float * digit_images; 

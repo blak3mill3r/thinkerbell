@@ -34,7 +34,7 @@ label_graph->redraw();
 }
 
 VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_)(float*, float*, float*) ) {
-  { visualize_window = new Fl_Double_Window(175, 185);
+  { visualize_window = new Fl_Double_Window(215, 220);
     visualize_window->user_data((void*)(this));
     { example_spinner = new Fl_Spinner(60, 1, 40, 24, "example");
       example_spinner->minimum(0);
@@ -42,7 +42,7 @@ VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_
       example_spinner->value(0);
       example_spinner->callback((Fl_Callback*)cb_example_spinner);
     } // Fl_Spinner* example_spinner
-    { label_graph = new LabelWidget(0, 115, 128, 64, "opinion");
+    { label_graph = new LabelWidget(0, 115, 200, 64, "opinion");
       label_graph->box(FL_NO_BOX);
       label_graph->color((Fl_Color)247);
       label_graph->selection_color(FL_BACKGROUND_COLOR);
@@ -78,6 +78,9 @@ VisualizeUI::VisualizeUI( float * digit_images_, void (*reconstruction_callback_
     { Fl_Button* o = new Fl_Button(105, 5, 64, 20, "again");
       o->callback((Fl_Callback*)cb_again);
     } // Fl_Button* o
+    { Fl_Box* o = new Fl_Box(85, 200, 30, 16, "0 1 2 3 4 5 6 7 8 9");
+      o->labelsize(24);
+    } // Fl_Box* o
     visualize_window->end();
   } // Fl_Double_Window* visualize_window
   digit_images = digit_images_;

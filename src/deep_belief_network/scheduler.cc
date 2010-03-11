@@ -291,12 +291,15 @@ void DBNScheduler::operator()()
           }
     
           // set v's activations based on energies
+          // 'tis not a binary activation ... important!
+          // the values in dmemory->neurons_ptr(v, bufa) are probabilities after running this
           ops.activate_vertex( dbn->neurons_size(v)
                              , batch_size
                              , (*streams[streami])
                              , dmemory->neurons_ptr(v, bufa)
                              , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                              , dmemory->biases_ptr(v, bufa)
+                             , false
                              );
     
           //cout << "Debuggify vertex " << dbn->neurons_name(v) << endl;
@@ -363,13 +366,14 @@ void DBNScheduler::operator()()
         //// read biases from bufb
         //// adjust them based on sourcev in bufa
         //// write them to bufc
-        ops.positive_bias_adjustment( *streams[streami]
+        /*ops.positive_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
                                     , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
+        */
       }
 
       // positive bias adjustment for top vertex:
@@ -380,6 +384,18 @@ void DBNScheduler::operator()()
                                   , dmemory->neurons_ptr(top, bufa)
                                   , learning_rate
                                   );
+
+      // binary activate top vertex
+      // 'tis a binary activation ... important!
+      // the values in dmemory->neurons_ptr(v, bufa) are 0 or 1 after this
+      ops.activate_vertex( dbn->neurons_size(top)
+                         , batch_size
+                         , (*streams[streami])
+                         , dmemory->neurons_ptr(top, bufa)
+                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(top))))
+                         , dmemory->biases_ptr(top, bufa)
+                         , true
+                         );
 
       ////////////////
       // AGS BEGINS //
@@ -408,13 +424,14 @@ void DBNScheduler::operator()()
           random_offset = 0;
         }
 
+        // 'tis never a binary activation ... important!
         ops.activate_vertex( dbn->neurons_size(sourcev)
                            , batch_size
                            , (*streams[streami])
                            , dmemory->neurons_ptr(sourcev, bufa)
                            , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(sourcev))))
                            , dmemory->biases_ptr(sourcev, bufa)
-                           , true//!dbn->is_input_vertex(sourcev)
+                           , false
                            );
   
           /*
@@ -454,12 +471,14 @@ void DBNScheduler::operator()()
         random_offset = 0;
       }
 
+      // 'tis never a binary activation ... important!
       ops.activate_vertex( dbn->neurons_size(top)
                          , batch_size
                          , (*streams[streami])
                          , dmemory->neurons_ptr(top, bufa)
                          , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(top))))
                          , dmemory->biases_ptr(top, bufa)
+                         , false
                          );
 
       //////////////
@@ -490,13 +509,15 @@ void DBNScheduler::operator()()
         // read biases from bufb
         // adjust them based on sourcev in bufa
         // write them to bufc
-        ops.negative_bias_adjustment( *streams[streami]
+        // PROBLEM the top vertex probabilities are gone already...
+        /*ops.negative_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
                                     , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
+        */
       }
 
       // negative bias adjustment for top vertex
@@ -517,17 +538,17 @@ void DBNScheduler::operator()()
       /////////////////////////////
 
       // weight decay for each training edge
-      //BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
-      //{
-      //  Vertex sourcev = source( e, dbn->m_graph );
-      //  ops.decay_weights( *streams[streami]
-      //                   , dmemory->weight_deltas_ptr( e, bufc )
-      //                   , dmemory->weights_ptr( e, bufc )
-      //                   , dbn->neurons_size( topv )
-      //                   , dbn->neurons_size( sourcev )
-      //                   , learning_rate * weight_cost
-      //                   );
-      //}
+      BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
+      {
+        Vertex sourcev = source( e, dbn->m_graph );
+        ops.decay_weights( *streams[streami]
+                         , dmemory->weight_deltas_ptr( e, bufc )
+                         , dmemory->weights_ptr( e, bufc )
+                         , dbn->neurons_size( topv )
+                         , dbn->neurons_size( sourcev )
+                         , learning_rate * weight_cost
+                         );
+      }
 
       BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
       {

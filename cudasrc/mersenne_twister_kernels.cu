@@ -5,8 +5,8 @@
 
 
 
-__device__ static mt_struct_stripped ds_MT[MT_RNG_COUNT];
-static mt_struct_stripped h_MT[MT_RNG_COUNT];
+//__device__ static mt_struct_stripped ds_MT[MT_RNG_COUNT];
+//static mt_struct_stripped h_MT[MT_RNG_COUNT];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Write MT_RNG_COUNT vertical lanes of NPerRng random numbers to *d_Random.
@@ -79,12 +79,14 @@ __global__ void RandomGPU(
 // using Cartesian form of Box-Muller transformation.
 // NPerRng must be even.
 ////////////////////////////////////////////////////////////////////////////////
+#define SIGMA 0.2    // 99.7% lie within 3 standard deviations, pretty much all are within 4
+#define MEAN 0.5     // centered around 0.5
 #define PI 3.14159265358979f
 __device__ void BoxMuller(float& u1, float& u2){
     float   r = sqrtf(-2.0f * logf(u1));
     float phi = 2 * PI * u2;
-    u1 = r * __cosf(phi);
-    u2 = r * __sinf(phi);
+    u1 = r * __cosf(phi) * SIGMA + MEAN;
+    u2 = r * __sinf(phi) * SIGMA + MEAN;
 }
 
 extern "C"
