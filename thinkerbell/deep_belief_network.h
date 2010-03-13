@@ -103,6 +103,12 @@ class DBN
     Vertex top_vertex() { return m_all_vertices.back(); }
     DBNGraph m_graph;
 
+    int num_vertices()
+      { return boost::num_vertices(m_graph); }
+
+    int num_edges()
+      { return boost::num_edges(m_graph); }
+
     int neurons_size( Vertex v )
       { return (m_graph)[v].neurons->size(); }
 
