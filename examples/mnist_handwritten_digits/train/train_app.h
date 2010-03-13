@@ -37,17 +37,18 @@ public:
   static float digit_labels[60000*16];    // the training label set, 16 neurons represent 0-9 and 6 unused neurons
   boost::scoped_ptr<DBNHackage> hackage;
 
+  int batch_size;
+  int num_batches_on_host;
+  float learning_rate;
+  float weight_cost;
+  float momentum;
+
 private:
 
   thinkerbell::DBNStats dbn_stats; 
   thread * scheduler_thread;
   thinkerbell::DBNScheduler * scheduler;
   int num_batches_trained;
-  int batch_size;
-  int num_batches_on_host;
-  float learning_rate;
-  float weight_cost;
-  float momentum;
 };
 
 DECLARE_APP(TrainApp)

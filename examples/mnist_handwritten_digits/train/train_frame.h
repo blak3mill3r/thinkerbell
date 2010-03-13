@@ -73,6 +73,7 @@ protected:
   // Event handlers
   void OnTrainingStart( wxCommandEvent& event );
   void OnTrainingStop( wxCommandEvent& event );
+  void OnChangeLearningRate( wxCommandEvent& event );
 private:
   TrainApp * app;
   GreedyLearningFrame* greedy_learning_frame;

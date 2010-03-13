@@ -35,6 +35,14 @@ void GreedyLearningFrame::OnTrainingStop( wxCommandEvent& event )
                                      );
 }
 
+void GreedyLearningFrame::OnChangeLearningRate( wxCommandEvent& event )
+{
+  double learning_rate;
+  m_learning_rate_text->GetValue().ToDouble(&learning_rate);
+  cout << "fukcin setting it to " << (float)learning_rate << endl;
+  app->learning_rate = (float)learning_rate;
+}
+
 VisualizeReconstructionsFrame::VisualizeReconstructionsFrame( wxWindow* parent, TrainApp* app_ )
   : VisualizeReconstructionsGui( parent )
   , app( app_ )
@@ -44,6 +52,7 @@ VisualizeReconstructionsFrame::VisualizeReconstructionsFrame( wxWindow* parent, 
 
 VisualizeReconstructionsFrame::~VisualizeReconstructionsFrame()
 {
+  m_timer.Stop();
 	m_timer.Disconnect( wxEVT_TIMER, wxTimerEventHandler( VisualizeReconstructionsFrame::OnTimerEvent ), NULL, this);
 }
 

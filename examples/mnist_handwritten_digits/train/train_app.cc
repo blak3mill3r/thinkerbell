@@ -161,6 +161,7 @@ void TrainApp::start_scheduler()
 {
   if(scheduler!=NULL) delete scheduler;
   if(scheduler_thread!=NULL) delete scheduler_thread;
+  cout << "about to start it and learning rate is " << learning_rate << endl;
   scheduler = new DBNScheduler( &dbn, batch_size, 1, num_batches_on_host, prepare_examples, learning_rate, weight_cost, momentum );
   scheduler_thread = new thread( ref(*scheduler) );
 }

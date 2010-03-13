@@ -77,6 +77,7 @@ class TrainGui : public wxFrame
 		virtual void OnSelectVertex( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnSelectEdge( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnNeuronsApplyChanges( wxCommandEvent& event ){ event.Skip(); }
+		virtual void OnEdgeRandomize( wxCommandEvent& event ){ event.Skip(); }
 		
 	
 	public:
@@ -98,11 +99,16 @@ class GreedyLearningGui : public wxFrame
 		wxButton* m_training_close_button;
 		wxStaticText* m_staticText14;
 		wxTextCtrl* m_training_num_iterations_text;
+		wxStaticText* m_staticText18;
+		wxTextCtrl* m_learning_rate_text;
+		wxStaticText* m_staticText19;
+		wxTextCtrl* m_error_text;
 		
 		// Virtual event handlers, overide them in your derived class
 		virtual void OnTrainingStart( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnTrainingStop( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnClose( wxCommandEvent& event ){ event.Skip(); }
+		virtual void OnChangeLearningRate( wxCommandEvent& event ){ event.Skip(); }
 		
 	
 	public:

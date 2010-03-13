@@ -162,6 +162,7 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	m_list_vertices->Connect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectVertex ), NULL, this );
 	m_list_edges->Connect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectEdge ), NULL, this );
 	m_vertex_apply_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
+	m_edge_randomize_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }
 
 TrainGui::~TrainGui()
@@ -176,6 +177,7 @@ TrainGui::~TrainGui()
 	m_list_vertices->Disconnect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectVertex ), NULL, this );
 	m_list_edges->Disconnect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectEdge ), NULL, this );
 	m_vertex_apply_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
+	m_edge_randomize_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }
 
 GreedyLearningGui::GreedyLearningGui( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxFrame( parent, id, title, pos, size, style )
@@ -183,7 +185,7 @@ GreedyLearningGui::GreedyLearningGui( wxWindow* parent, wxWindowID id, const wxS
 	this->SetSizeHints( wxDefaultSize, wxDefaultSize );
 	
 	wxGridSizer* gSizer1;
-	gSizer1 = new wxGridSizer( 2, 1, 0, 0 );
+	gSizer1 = new wxGridSizer( 2, 2, 0, 0 );
 	
 	wxBoxSizer* bSizer9;
 	bSizer9 = new wxBoxSizer( wxHORIZONTAL );
@@ -217,6 +219,31 @@ GreedyLearningGui::GreedyLearningGui( wxWindow* parent, wxWindowID id, const wxS
 	
 	gSizer1->Add( fgSizer5, 1, wxEXPAND, 5 );
 	
+	wxFlexGridSizer* fgSizer9;
+	fgSizer9 = new wxFlexGridSizer( 2, 2, 0, 0 );
+	fgSizer9->SetFlexibleDirection( wxBOTH );
+	fgSizer9->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
+	
+	m_staticText18 = new wxStaticText( this, wxID_ANY, wxT("Learning Rate"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText18->Wrap( -1 );
+	fgSizer9->Add( m_staticText18, 0, wxALL, 5 );
+	
+	m_learning_rate_text = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER );
+	m_learning_rate_text->SetMinSize( wxSize( 128,-1 ) );
+	
+	fgSizer9->Add( m_learning_rate_text, 0, wxALL, 5 );
+	
+	m_staticText19 = new wxStaticText( this, wxID_ANY, wxT("Error"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText19->Wrap( -1 );
+	fgSizer9->Add( m_staticText19, 0, wxALL, 5 );
+	
+	m_error_text = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY );
+	m_error_text->SetMinSize( wxSize( 128,-1 ) );
+	
+	fgSizer9->Add( m_error_text, 0, wxALL, 5 );
+	
+	gSizer1->Add( fgSizer9, 1, wxEXPAND, 5 );
+	
 	this->SetSizer( gSizer1 );
 	this->Layout();
 	
@@ -224,6 +251,7 @@ GreedyLearningGui::GreedyLearningGui( wxWindow* parent, wxWindowID id, const wxS
 	m_training_start_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnTrainingStart ), NULL, this );
 	m_training_stop_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnTrainingStop ), NULL, this );
 	m_training_close_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnClose ), NULL, this );
+	m_learning_rate_text->Connect( wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler( GreedyLearningGui::OnChangeLearningRate ), NULL, this );
 }
 
 GreedyLearningGui::~GreedyLearningGui()
@@ -232,6 +260,7 @@ GreedyLearningGui::~GreedyLearningGui()
 	m_training_start_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnTrainingStart ), NULL, this );
 	m_training_stop_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnTrainingStop ), NULL, this );
 	m_training_close_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( GreedyLearningGui::OnClose ), NULL, this );
+	m_learning_rate_text->Disconnect( wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler( GreedyLearningGui::OnChangeLearningRate ), NULL, this );
 }
 
 VisualizeReconstructionsGui::VisualizeReconstructionsGui( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxFrame( parent, id, title, pos, size, style )
