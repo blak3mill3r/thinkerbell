@@ -151,6 +151,9 @@ class DBN
     bool is_input_vertex( Vertex v );
     bool is_top_vertex( Vertex v );
 
+    void delete_vertex( Vertex v );
+    void delete_edge(Edge e);
+
   protected:
     void update_graph_metadata();
     list<Vertex> m_topological_order;

@@ -103,6 +103,20 @@ void TrainFrame::OnTrainGreedy( wxCommandEvent& event )
   greedy_learning_frame->Show();
 }
 
+void TrainFrame::OnDeleteVertex( Vertex v )
+{
+  app->dbn.delete_vertex(v);
+  cout << "Deleted " << v << endl;
+  update_dbn_controls();
+}
+
+void TrainFrame::OnDeleteEdge( Edge e )
+{
+  app->dbn.delete_edge(e);
+  cout << "Deleted edge" << endl;
+  update_dbn_controls();
+}
+
 void TrainFrame::OnViewReconstructions( wxCommandEvent& event )
 {
   VisualizeReconstructionsFrame * visualize_reconstructions_frame = new VisualizeReconstructionsFrame( this, app );
@@ -191,7 +205,7 @@ void TrainFrame::OnFileQuit( wxCommandEvent& event )
 
 void TrainFrame::update_vertex_controls()
 {
-  m_list_edges->Clear();
+  /*
   Vertex * vp = SelectedVertex();
   if(vp==NULL) return;
 
@@ -218,6 +232,7 @@ void TrainFrame::update_vertex_controls()
                                                        )
                                      );
 
+  */
 }
 
 void TrainFrame::update_edge_controls()
@@ -238,7 +253,7 @@ void TrainFrame::update_edge_controls()
 
 void TrainFrame::update_dbn_controls()
 {
-  m_list_vertices->Clear();
+  /*
   for_each( app->dbn.topological_order_begin()
           , app->dbn.topological_order_end()
           , lambda::bind( &TrainFrame::append_vertex
@@ -246,24 +261,10 @@ void TrainFrame::update_dbn_controls()
                         , lambda::_1
                         ) 
           );
+  */
   update_vertex_controls();
 
   m_graphviz_control->update_graphviz( app->dbn );
-}
-
-void TrainFrame::append_vertex( Vertex v )
-{
-  wxString name(app->dbn.neurons_name(v).c_str(), wxConvUTF8);
-  m_list_vertices->Append( name, v );
-}
-
-void TrainFrame::append_edge( Edge e )
-{
-  Vertex sourcev = source( e, app->dbn.m_graph )
-       , targetv = target( e, app->dbn.m_graph )
-       ;
-  wxString name(app->dbn.neurons_name(targetv).c_str(), wxConvUTF8);
-  m_list_edges->Append( name, e );
 }
 
 void TrainFrame::OnSelectVertex( wxCommandEvent& event )
@@ -278,7 +279,9 @@ void TrainFrame::OnSelectEdge( wxCommandEvent& event )
 
 void TrainFrame::OnNeuronsApplyChanges( wxCommandEvent& event )
 {
-  Vertex * vp = SelectedVertex();
+  //Vertex * vp = SelectedVertex();
+  return;
+  /*
   if(vp==NULL) return;
   wxString new_name = m_vertex_neurons_name_text->GetValue();
   bool masked = m_vertex_masked_check_box->GetValue();
@@ -290,24 +293,17 @@ void TrainFrame::OnNeuronsApplyChanges( wxCommandEvent& event )
   else
     app->dbn.unmask(*vp);
   // update gui
+  */
   update_dbn_controls();
 }
 
-void TrainFrame::OnEdgeRandomize( wxCommandEvent& event )
-{
-  Edge * ep = SelectedEdge();
-  if(ep==NULL) return;
-  app->dbn.m_graph[*ep].rbm->randomize_weights();
-}
+void TrainFrame::OnEdgeRandomize( Edge e )
+  { app->dbn.m_graph[e].rbm->randomize_weights(); }
 
 Vertex * TrainFrame::SelectedVertex()
 {
-  int id = m_list_vertices->GetSelection(); if( id == wxNOT_FOUND ) return NULL;
-  return m_list_vertices->GetClientData(id);
 }
 
 Edge * TrainFrame::SelectedEdge()
 {
-  int id = m_list_edges->GetSelection(); if( id == wxNOT_FOUND ) return NULL;
-  return m_list_edges->GetClientData(id);
 }

@@ -13,6 +13,19 @@ DBN::~DBN()
 {
 }
 
+void DBN::delete_vertex(Vertex v)
+{
+  clear_vertex(v, m_graph);
+  remove_vertex(v, m_graph);
+  update_graph_metadata();
+}
+
+void DBN::delete_edge(Edge e)
+{
+  remove_edge(e, m_graph);
+  update_graph_metadata();
+}
+
 void DBN::mask(Vertex v)
 {
   m_graph[v].mask = true;

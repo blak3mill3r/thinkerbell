@@ -5,8 +5,6 @@
 // PLEASE DO "NOT" EDIT THIS FILE!
 ///////////////////////////////////////////////////////////////////////////
 
-#include "list_box_generic_container.h"
-
 #include "train_gui.h"
 
 ///////////////////////////////////////////////////////////////////////////
@@ -54,28 +52,16 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->SetMenuBar( m_main_menu_bar );
 	
 	m_statusBar1 = this->CreateStatusBar( 1, wxST_SIZEGRIP, wxID_ANY );
-	wxBoxSizer* bSizer4;
-	bSizer4 = new wxBoxSizer( wxVERTICAL );
-	
-	wxBoxSizer* bSizer2;
-	bSizer2 = new wxBoxSizer( wxHORIZONTAL );
-	
-	m_list_vertices = new wxListBoxVertices( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, NULL, 0 ); 
-	m_list_vertices->SetToolTip( wxT("Shows all vertices") );
-	m_list_vertices->SetMinSize( wxSize( 256,256 ) );
-	
-	bSizer2->Add( m_list_vertices, 0, wxALL, 5 );
-	
-	m_list_edges = new wxListBoxEdges( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, NULL, 0 ); 
-	m_list_edges->SetToolTip( wxT("Shows edges for selected vertex") );
-	m_list_edges->SetMinSize( wxSize( 256,256 ) );
-	
-	bSizer2->Add( m_list_edges, 0, wxALL, 5 );
+	wxFlexGridSizer* fgSizer7;
+	fgSizer7 = new wxFlexGridSizer( 2, 1, 0, 0 );
+	fgSizer7->SetFlexibleDirection( wxBOTH );
+	fgSizer7->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 	
 	m_graphviz_control = new wxDbnGraphvizControl( this, wxSize(512, 256));
-	bSizer2->Add( m_graphviz_control, 0, wxALL, 5 );
+	m_graphviz_control->SetMinSize( wxSize( 512,512 ) );
+	m_graphviz_control->SetMaxSize( wxSize( 512,512 ) );
 	
-	bSizer4->Add( bSizer2, 1, wxEXPAND, 5 );
+	fgSizer7->Add( m_graphviz_control, 0, wxALL, 5 );
 	
 	wxBoxSizer* bSizer6;
 	bSizer6 = new wxBoxSizer( wxHORIZONTAL );
@@ -150,9 +136,9 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	
 	bSizer6->Add( fgSizer11, 1, wxEXPAND, 5 );
 	
-	bSizer4->Add( bSizer6, 1, wxEXPAND, 5 );
+	fgSizer7->Add( bSizer6, 1, wxEXPAND, 5 );
 	
-	this->SetSizer( bSizer4 );
+	this->SetSizer( fgSizer7 );
 	this->Layout();
 	
 	// Connect Events
@@ -162,8 +148,6 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->Connect( m_file_quit->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Connect( m_train_greedy->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Connect( m_visualize_reconstructions->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );
-	m_list_vertices->Connect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectVertex ), NULL, this );
-	m_list_edges->Connect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectEdge ), NULL, this );
 	m_vertex_apply_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
 	m_edge_randomize_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }
@@ -177,8 +161,6 @@ TrainGui::~TrainGui()
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );
-	m_list_vertices->Disconnect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectVertex ), NULL, this );
-	m_list_edges->Disconnect( wxEVT_COMMAND_LISTBOX_SELECTED, wxCommandEventHandler( TrainGui::OnSelectEdge ), NULL, this );
 	m_vertex_apply_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
 	m_edge_randomize_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }

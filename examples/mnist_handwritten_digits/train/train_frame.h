@@ -21,6 +21,12 @@ class TrainFrame : public TrainGui
 public:
 	/** Constructor */
 	TrainFrame( wxWindow* parent, TrainApp* app );
+  // Vertex context menu
+  void OnDeleteVertex(thinkerbell::Vertex v);
+  // Edge context menu
+  void OnDeleteEdge(thinkerbell::Edge e);
+  void OnEdgeRandomize(thinkerbell::Edge e);
+
 protected:
   // Event handlers
   // Menus
@@ -43,9 +49,6 @@ protected:
 
   // Vertex controls
   void OnNeuronsApplyChanges( wxCommandEvent& event );
-
-  // Edge controls
-  void OnEdgeRandomize( wxCommandEvent& event );
 private:
   TrainApp * app;
 

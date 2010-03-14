@@ -18,13 +18,12 @@
 #include <wx/colour.h>
 #include <wx/settings.h>
 #include <wx/statusbr.h>
-#include <wx/listbox.h>
 #include "dbn_graphviz_widget.h"
-#include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/checkbox.h>
 #include <wx/textctrl.h>
 #include <wx/button.h>
+#include <wx/sizer.h>
 #include <wx/frame.h>
 #include <wx/spinctrl.h>
 #include "training_example_widget.h"
@@ -52,8 +51,6 @@ class TrainGui : public wxFrame
 		wxMenu* m_train;
 		wxMenu* m_visualize;
 		wxStatusBar* m_statusBar1;
-		wxListBoxVertices* m_list_vertices;
-		wxListBoxEdges* m_list_edges;
 		wxDbnGraphvizControl * m_graphviz_control;
 		wxStaticText* m_staticText31;
 		wxCheckBox* m_vertex_masked_check_box;
@@ -76,14 +73,12 @@ class TrainGui : public wxFrame
 		virtual void OnFileQuit( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnTrainGreedy( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnViewReconstructions( wxCommandEvent& event ){ event.Skip(); }
-		virtual void OnSelectVertex( wxCommandEvent& event ){ event.Skip(); }
-		virtual void OnSelectEdge( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnNeuronsApplyChanges( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnEdgeRandomize( wxCommandEvent& event ){ event.Skip(); }
 		
 	
 	public:
-		TrainGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 1142,828 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
+		TrainGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 1242,922 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
 		~TrainGui();
 	
 };

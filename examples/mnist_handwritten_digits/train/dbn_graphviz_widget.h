@@ -10,6 +10,8 @@
 #include "wx/image.h"
 #include <thinkerbell/deep_belief_network.h>
 
+#define ID_VERTEX_MENU_DELETE 39000
+
 class wxDbnGraphvizControl : public wxPanel
 {
   
@@ -24,27 +26,41 @@ public:
   
   void mouseDown(wxMouseEvent& event);
   void mouseReleased(wxMouseEvent& event);
+  void OnContext(wxContextMenuEvent& event);
   
   DECLARE_EVENT_TABLE()
 private:
-  thinkerbell::DBN * dbn;
   wxImage * m_graph_image;
+
+  wxString m_graph_image_map_string;
+  std::multimap< thinkerbell::Vertex, wxRegion > m_graph_image_map_vertices;
+  std::multimap< thinkerbell::Edge, wxRegion > m_graph_image_map_edges;
+  void parse_image_map(thinkerbell::DBN &dbn);
+  wxRegion parse_rectangle_string( std::string tl, std::string br );
 };
- 
-class DotProcess : public wxProcess
+
+class wxVertexMenu : public wxMenu 
 {
 public:
-    DotProcess(wxWindow *parent, const wxString& input)
-      : wxProcess(parent)
-      , m_input(input)
-    {
-      //Redirect();
-    }
+  wxVertexMenu(thinkerbell::Vertex v, wxDbnGraphvizControl * parent_);
 
-  void OnTerminate(int pid, int status);
-
+  void OnDelete( wxCommandEvent& e );
+  DECLARE_EVENT_TABLE()
 private:
-    wxString m_input;
+  wxDbnGraphvizControl * parent;
+  thinkerbell::Vertex vertex;
 };
+ 
+class wxEdgeMenu : public wxMenu 
+{
+public:
+  wxEdgeMenu(thinkerbell::Edge e, wxDbnGraphvizControl * parent_);
 
+  void OnDelete( wxCommandEvent& e );
+  DECLARE_EVENT_TABLE()
+private:
+  wxDbnGraphvizControl * parent;
+  thinkerbell::Edge edge;
+};
+ 
 #endif

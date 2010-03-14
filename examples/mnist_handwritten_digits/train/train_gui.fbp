@@ -32,7 +32,7 @@
             <property name="minimum_size"></property>
             <property name="name">TrainGui</property>
             <property name="pos"></property>
-            <property name="size">1142,828</property>
+            <property name="size">1242,922</property>
             <property name="style">wxDEFAULT_FRAME_STYLE</property>
             <property name="subclass"></property>
             <property name="title"></property>
@@ -268,177 +268,69 @@
                 <event name="OnSize"></event>
                 <event name="OnUpdateUI"></event>
             </object>
-            <object class="wxBoxSizer" expanded="0">
+            <object class="wxFlexGridSizer" expanded="1">
+                <property name="cols">1</property>
+                <property name="flexible_direction">wxBOTH</property>
+                <property name="growablecols"></property>
+                <property name="growablerows"></property>
+                <property name="hgap">0</property>
                 <property name="minimum_size"></property>
-                <property name="name">bSizer4</property>
-                <property name="orient">wxVERTICAL</property>
+                <property name="name">fgSizer7</property>
+                <property name="non_flexible_grow_mode">wxFLEX_GROWMODE_SPECIFIED</property>
                 <property name="permission">none</property>
+                <property name="rows">2</property>
+                <property name="vgap">0</property>
                 <object class="sizeritem" expanded="1">
                     <property name="border">5</property>
-                    <property name="flag">wxEXPAND</property>
-                    <property name="proportion">1</property>
-                    <object class="wxBoxSizer" expanded="1">
-                        <property name="minimum_size"></property>
-                        <property name="name">bSizer2</property>
-                        <property name="orient">wxHORIZONTAL</property>
-                        <property name="permission">none</property>
-                        <object class="sizeritem" expanded="1">
-                            <property name="border">5</property>
-                            <property name="flag">wxALL</property>
-                            <property name="proportion">0</property>
-                            <object class="wxListBox" expanded="1">
-                                <property name="bg"></property>
-                                <property name="choices"></property>
-                                <property name="context_help"></property>
-                                <property name="enabled">1</property>
-                                <property name="fg"></property>
-                                <property name="font"></property>
-                                <property name="hidden">0</property>
-                                <property name="id">wxID_ANY</property>
-                                <property name="maximum_size"></property>
-                                <property name="minimum_size">256,256</property>
-                                <property name="name">m_list_vertices</property>
-                                <property name="permission">protected</property>
-                                <property name="pos"></property>
-                                <property name="size"></property>
-                                <property name="style"></property>
-                                <property name="subclass">wxListBoxVertices; list_box_generic_container.h</property>
-                                <property name="tooltip">Shows all vertices</property>
-                                <property name="window_extra_style"></property>
-                                <property name="window_name"></property>
-                                <property name="window_style"></property>
-                                <event name="OnChar"></event>
-                                <event name="OnEnterWindow"></event>
-                                <event name="OnEraseBackground"></event>
-                                <event name="OnKeyDown"></event>
-                                <event name="OnKeyUp"></event>
-                                <event name="OnKillFocus"></event>
-                                <event name="OnLeaveWindow"></event>
-                                <event name="OnLeftDClick"></event>
-                                <event name="OnLeftDown"></event>
-                                <event name="OnLeftUp"></event>
-                                <event name="OnListBox">OnSelectVertex</event>
-                                <event name="OnListBoxDClick"></event>
-                                <event name="OnMiddleDClick"></event>
-                                <event name="OnMiddleDown"></event>
-                                <event name="OnMiddleUp"></event>
-                                <event name="OnMotion"></event>
-                                <event name="OnMouseEvents"></event>
-                                <event name="OnMouseWheel"></event>
-                                <event name="OnPaint"></event>
-                                <event name="OnRightDClick"></event>
-                                <event name="OnRightDown"></event>
-                                <event name="OnRightUp"></event>
-                                <event name="OnSetFocus"></event>
-                                <event name="OnSize"></event>
-                                <event name="OnUpdateUI"></event>
-                            </object>
-                        </object>
-                        <object class="sizeritem" expanded="1">
-                            <property name="border">5</property>
-                            <property name="flag">wxALL</property>
-                            <property name="proportion">0</property>
-                            <object class="wxListBox" expanded="1">
-                                <property name="bg"></property>
-                                <property name="choices"></property>
-                                <property name="context_help"></property>
-                                <property name="enabled">1</property>
-                                <property name="fg"></property>
-                                <property name="font"></property>
-                                <property name="hidden">0</property>
-                                <property name="id">wxID_ANY</property>
-                                <property name="maximum_size"></property>
-                                <property name="minimum_size">256,256</property>
-                                <property name="name">m_list_edges</property>
-                                <property name="permission">protected</property>
-                                <property name="pos"></property>
-                                <property name="size"></property>
-                                <property name="style"></property>
-                                <property name="subclass">wxListBoxEdges; list_box_generic_container.h</property>
-                                <property name="tooltip">Shows edges for selected vertex</property>
-                                <property name="window_extra_style"></property>
-                                <property name="window_name"></property>
-                                <property name="window_style"></property>
-                                <event name="OnChar"></event>
-                                <event name="OnEnterWindow"></event>
-                                <event name="OnEraseBackground"></event>
-                                <event name="OnKeyDown"></event>
-                                <event name="OnKeyUp"></event>
-                                <event name="OnKillFocus"></event>
-                                <event name="OnLeaveWindow"></event>
-                                <event name="OnLeftDClick"></event>
-                                <event name="OnLeftDown"></event>
-                                <event name="OnLeftUp"></event>
-                                <event name="OnListBox">OnSelectEdge</event>
-                                <event name="OnListBoxDClick"></event>
-                                <event name="OnMiddleDClick"></event>
-                                <event name="OnMiddleDown"></event>
-                                <event name="OnMiddleUp"></event>
-                                <event name="OnMotion"></event>
-                                <event name="OnMouseEvents"></event>
-                                <event name="OnMouseWheel"></event>
-                                <event name="OnPaint"></event>
-                                <event name="OnRightDClick"></event>
-                                <event name="OnRightDown"></event>
-                                <event name="OnRightUp"></event>
-                                <event name="OnSetFocus"></event>
-                                <event name="OnSize"></event>
-                                <event name="OnUpdateUI"></event>
-                            </object>
-                        </object>
-                        <object class="sizeritem" expanded="1">
-                            <property name="border">5</property>
-                            <property name="flag">wxALL</property>
-                            <property name="proportion">0</property>
-                            <object class="CustomControl" expanded="1">
-                                <property name="bg"></property>
-                                <property name="class">wxDbnGraphvizControl</property>
-                                <property name="construction">m_graphviz_control = new wxDbnGraphvizControl( this, wxSize(512, 256));</property>
-                                <property name="context_help"></property>
-                                <property name="declaration">wxDbnGraphvizControl * m_graphviz_control;</property>
-                                <property name="enabled">1</property>
-                                <property name="fg"></property>
-                                <property name="font"></property>
-                                <property name="hidden">0</property>
-                                <property name="id">wxID_ANY</property>
-                                <property name="include">#include &quot;dbn_graphviz_widget.h&quot;</property>
-                                <property name="maximum_size"></property>
-                                <property name="minimum_size"></property>
-                                <property name="name">m_graphviz_control</property>
-                                <property name="permission">protected</property>
-                                <property name="pos"></property>
-                                <property name="settings"></property>
-                                <property name="size">512,256</property>
-                                <property name="subclass"></property>
-                                <property name="tooltip"></property>
-                                <property name="window_extra_style"></property>
-                                <property name="window_name"></property>
-                                <property name="window_style"></property>
-                                <event name="OnChar"></event>
-                                <event name="OnEnterWindow"></event>
-                                <event name="OnEraseBackground"></event>
-                                <event name="OnKeyDown"></event>
-                                <event name="OnKeyUp"></event>
-                                <event name="OnKillFocus"></event>
-                                <event name="OnLeaveWindow"></event>
-                                <event name="OnLeftDClick"></event>
-                                <event name="OnLeftDown"></event>
-                                <event name="OnLeftUp"></event>
-                                <event name="OnMiddleDClick"></event>
-                                <event name="OnMiddleDown"></event>
-                                <event name="OnMiddleUp"></event>
-                                <event name="OnMotion"></event>
-                                <event name="OnMouseEvents"></event>
-                                <event name="OnMouseWheel"></event>
-                                <event name="OnPaint"></event>
-                                <event name="OnRightDClick"></event>
-                                <event name="OnRightDown"></event>
-                                <event name="OnRightUp"></event>
-                                <event name="OnSetFocus"></event>
-                                <event name="OnSize"></event>
-                                <event name="OnUpdateUI"></event>
-                            </object>
-                        </object>
+                    <property name="flag">wxALL</property>
+                    <property name="proportion">0</property>
+                    <object class="CustomControl" expanded="1">
+                        <property name="bg"></property>
+                        <property name="class">wxDbnGraphvizControl</property>
+                        <property name="construction">m_graphviz_control = new wxDbnGraphvizControl( this, wxSize(512, 256));</property>
+                        <property name="context_help"></property>
+                        <property name="declaration">wxDbnGraphvizControl * m_graphviz_control;</property>
+                        <property name="enabled">1</property>
+                        <property name="fg"></property>
+                        <property name="font"></property>
+                        <property name="hidden">0</property>
+                        <property name="id">wxID_ANY</property>
+                        <property name="include">#include &quot;dbn_graphviz_widget.h&quot;</property>
+                        <property name="maximum_size">512,512</property>
+                        <property name="minimum_size">512,512</property>
+                        <property name="name">m_graphviz_control</property>
+                        <property name="permission">protected</property>
+                        <property name="pos"></property>
+                        <property name="settings"></property>
+                        <property name="size">512,512</property>
+                        <property name="subclass"></property>
+                        <property name="tooltip"></property>
+                        <property name="window_extra_style"></property>
+                        <property name="window_name"></property>
+                        <property name="window_style"></property>
+                        <event name="OnChar"></event>
+                        <event name="OnEnterWindow"></event>
+                        <event name="OnEraseBackground"></event>
+                        <event name="OnKeyDown"></event>
+                        <event name="OnKeyUp"></event>
+                        <event name="OnKillFocus"></event>
+                        <event name="OnLeaveWindow"></event>
+                        <event name="OnLeftDClick"></event>
+                        <event name="OnLeftDown"></event>
+                        <event name="OnLeftUp"></event>
+                        <event name="OnMiddleDClick"></event>
+                        <event name="OnMiddleDown"></event>
+                        <event name="OnMiddleUp"></event>
+                        <event name="OnMotion"></event>
+                        <event name="OnMouseEvents"></event>
+                        <event name="OnMouseWheel"></event>
+                        <event name="OnPaint"></event>
+                        <event name="OnRightDClick"></event>
+                        <event name="OnRightDown"></event>
+                        <event name="OnRightUp"></event>
+                        <event name="OnSetFocus"></event>
+                        <event name="OnSize"></event>
+                        <event name="OnUpdateUI"></event>
                     </object>
                 </object>
                 <object class="sizeritem" expanded="1">
@@ -454,7 +346,7 @@
                             <property name="border">5</property>
                             <property name="flag">wxEXPAND</property>
                             <property name="proportion">1</property>
-                            <object class="wxFlexGridSizer" expanded="1">
+                            <object class="wxFlexGridSizer" expanded="0">
                                 <property name="cols">2</property>
                                 <property name="flexible_direction">wxBOTH</property>
                                 <property name="growablecols"></property>
@@ -839,7 +731,7 @@
                             <property name="border">5</property>
                             <property name="flag">wxEXPAND</property>
                             <property name="proportion">1</property>
-                            <object class="wxFlexGridSizer" expanded="1">
+                            <object class="wxFlexGridSizer" expanded="0">
                                 <property name="cols">2</property>
                                 <property name="flexible_direction">wxBOTH</property>
                                 <property name="growablecols"></property>
@@ -1170,7 +1062,7 @@
                 </object>
             </object>
         </object>
-        <object class="Frame" expanded="1">
+        <object class="Frame" expanded="0">
             <property name="bg"></property>
             <property name="center"></property>
             <property name="context_help"></property>
@@ -1753,7 +1645,7 @@
                 </object>
             </object>
         </object>
-        <object class="Frame" expanded="1">
+        <object class="Frame" expanded="0">
             <property name="bg"></property>
             <property name="center"></property>
             <property name="context_help"></property>
