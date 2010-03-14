@@ -19,6 +19,7 @@
 #include <wx/settings.h>
 #include <wx/statusbr.h>
 #include <wx/listbox.h>
+#include "dbn_graphviz_widget.h"
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/checkbox.h>
@@ -53,6 +54,7 @@ class TrainGui : public wxFrame
 		wxStatusBar* m_statusBar1;
 		wxListBoxVertices* m_list_vertices;
 		wxListBoxEdges* m_list_edges;
+		wxDbnGraphvizControl * m_graphviz_control;
 		wxStaticText* m_staticText31;
 		wxCheckBox* m_vertex_masked_check_box;
 		wxStaticText* m_staticText3;
@@ -81,7 +83,7 @@ class TrainGui : public wxFrame
 		
 	
 	public:
-		TrainGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 858,647 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
+		TrainGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 1142,828 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
 		~TrainGui();
 	
 };

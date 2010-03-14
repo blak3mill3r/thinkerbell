@@ -95,7 +95,6 @@ TrainFrame::TrainFrame( wxWindow* parent, TrainApp* app_ )
   : TrainGui( parent )
   , app( app_ )
 {
-
 }
 
 void TrainFrame::OnTrainGreedy( wxCommandEvent& event )
@@ -248,6 +247,8 @@ void TrainFrame::update_dbn_controls()
                         ) 
           );
   update_vertex_controls();
+
+  m_graphviz_control->update_graphviz( app->dbn );
 }
 
 void TrainFrame::append_vertex( Vertex v )

@@ -72,6 +72,9 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	
 	bSizer2->Add( m_list_edges, 0, wxALL, 5 );
 	
+	m_graphviz_control = new wxDbnGraphvizControl( this, wxSize(512, 256));
+	bSizer2->Add( m_graphviz_control, 0, wxALL, 5 );
+	
 	bSizer4->Add( bSizer2, 1, wxEXPAND, 5 );
 	
 	wxBoxSizer* bSizer6;
