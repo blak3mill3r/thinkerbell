@@ -126,9 +126,10 @@ TrainApp::~TrainApp()
 
 void TrainApp::load_dbn_file(const char * filename)
 {
-    ifstream ifs(filename, ios::in);
-    archive::binary_iarchive ia(ifs);
-    ia >> dbn;
+  dbn.m_graph.clear();
+  ifstream ifs(filename, ios::in);
+  archive::binary_iarchive ia(ifs);
+  ia >> dbn;
 }
 
 void TrainApp::save_dbn_file(const char * filename)

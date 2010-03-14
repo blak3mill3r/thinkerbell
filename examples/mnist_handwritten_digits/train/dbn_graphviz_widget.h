@@ -10,7 +10,9 @@
 #include "wx/image.h"
 #include <thinkerbell/deep_belief_network.h>
 
-#define ID_VERTEX_MENU_DELETE 39000
+#define ID_VERTEX_MENU_DELETE   69000
+#define ID_EDGE_MENU_DELETE     69001
+#define ID_EDGE_MENU_RANDOMIZE  69002
 
 class wxDbnGraphvizControl : public wxPanel
 {
@@ -57,6 +59,7 @@ public:
   wxEdgeMenu(thinkerbell::Edge e, wxDbnGraphvizControl * parent_);
 
   void OnDelete( wxCommandEvent& e );
+  void OnRandomize( wxCommandEvent& e );
   DECLARE_EVENT_TABLE()
 private:
   wxDbnGraphvizControl * parent;

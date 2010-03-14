@@ -21,7 +21,8 @@ BEGIN_EVENT_TABLE(wxVertexMenu, wxMenu)
 END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(wxEdgeMenu, wxMenu)
-  EVT_MENU( ID_VERTEX_MENU_DELETE, wxEdgeMenu::OnDelete )
+  EVT_MENU( ID_EDGE_MENU_DELETE, wxEdgeMenu::OnDelete )
+  EVT_MENU( ID_EDGE_MENU_RANDOMIZE, wxEdgeMenu::OnRandomize )
 END_EVENT_TABLE()
 
 //////////////////
@@ -47,14 +48,20 @@ wxEdgeMenu::wxEdgeMenu(Edge e, wxDbnGraphvizControl * parent_)
   : edge(e)
   , parent( parent_ )
 {
-  Append(ID_VERTEX_MENU_DELETE, wxT("delete"));
-  Append(ID_VERTEX_MENU_DELETE, wxT("randomize weights"));
+  Append(ID_EDGE_MENU_DELETE, wxT("delete"));
+  Append(ID_EDGE_MENU_RANDOMIZE, wxT("randomize weights"));
 }
 
 void wxEdgeMenu::OnDelete( wxCommandEvent& e )
 {
   TrainFrame * poo = static_cast< TrainFrame * >(parent->GetParent()); 
   poo->OnDeleteEdge(edge);
+}
+
+void wxEdgeMenu::OnRandomize( wxCommandEvent& e )
+{
+  TrainFrame * poo = static_cast< TrainFrame * >(parent->GetParent()); 
+  poo->OnEdgeRandomize(edge);
 }
 
 wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent, const wxSize& size)
@@ -128,6 +135,9 @@ void wxDbnGraphvizControl::OnContext(wxContextMenuEvent& event)
 
 void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
 {
+  m_graph_image_map_string.Clear();
+  m_graph_image_map_vertices.clear();
+  m_graph_image_map_edges.clear();
   wxInitAllImageHandlers(); // FIXME just need PNG
   //FIXME support sizes other than 512x512
   wxString pngcmd = _("dot -Tpng -Gviewport=512,512 -Gdpi=72 -Gsize=512,512");
