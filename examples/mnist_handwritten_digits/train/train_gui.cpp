@@ -52,93 +52,13 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->SetMenuBar( m_main_menu_bar );
 	
 	m_statusBar1 = this->CreateStatusBar( 1, wxST_SIZEGRIP, wxID_ANY );
-	wxFlexGridSizer* fgSizer7;
-	fgSizer7 = new wxFlexGridSizer( 2, 1, 0, 0 );
-	fgSizer7->SetFlexibleDirection( wxBOTH );
-	fgSizer7->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
+	wxBoxSizer* bSizer2;
+	bSizer2 = new wxBoxSizer( wxVERTICAL );
 	
-	m_graphviz_control = new wxDbnGraphvizControl( this, wxSize(512, 256));
-	m_graphviz_control->SetMinSize( wxSize( 512,512 ) );
-	m_graphviz_control->SetMaxSize( wxSize( 512,512 ) );
+	m_graphviz_control = new wxDbnGraphvizControl( this );
+	bSizer2->Add( m_graphviz_control, 1, wxALL|wxEXPAND, 5 );
 	
-	fgSizer7->Add( m_graphviz_control, 0, wxALL, 5 );
-	
-	wxBoxSizer* bSizer6;
-	bSizer6 = new wxBoxSizer( wxHORIZONTAL );
-	
-	wxFlexGridSizer* fgSizer1;
-	fgSizer1 = new wxFlexGridSizer( 2, 2, 0, 0 );
-	fgSizer1->SetFlexibleDirection( wxBOTH );
-	fgSizer1->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
-	
-	m_staticText31 = new wxStaticText( this, wxID_ANY, wxT("Masked:"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText31->Wrap( -1 );
-	fgSizer1->Add( m_staticText31, 0, wxALL, 5 );
-	
-	m_vertex_masked_check_box = new wxCheckBox( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-	
-	fgSizer1->Add( m_vertex_masked_check_box, 0, wxALL, 5 );
-	
-	m_staticText3 = new wxStaticText( this, wxID_ANY, wxT("Size:"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText3->Wrap( -1 );
-	fgSizer1->Add( m_staticText3, 0, wxALL, 5 );
-	
-	m_vertex_num_neurons_text = new wxTextCtrl( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_vertex_num_neurons_text->Enable( false );
-	
-	fgSizer1->Add( m_vertex_num_neurons_text, 0, wxALL, 5 );
-	
-	m_staticText12 = new wxStaticText( this, wxID_ANY, wxT("Name:"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText12->Wrap( -1 );
-	fgSizer1->Add( m_staticText12, 0, wxALL, 5 );
-	
-	m_vertex_neurons_name_text = new wxTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-	m_vertex_neurons_name_text->SetMinSize( wxSize( 256,-1 ) );
-	
-	fgSizer1->Add( m_vertex_neurons_name_text, 0, wxALL, 5 );
-	
-	m_vertex_apply_button = new wxButton( this, wxID_ANY, wxT("Apply"), wxDefaultPosition, wxDefaultSize, 0 );
-	fgSizer1->Add( m_vertex_apply_button, 0, wxALL, 5 );
-	
-	bSizer6->Add( fgSizer1, 1, wxEXPAND, 5 );
-	
-	wxFlexGridSizer* fgSizer11;
-	fgSizer11 = new wxFlexGridSizer( 2, 2, 0, 0 );
-	fgSizer11->SetFlexibleDirection( wxBOTH );
-	fgSizer11->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
-	
-	m_staticText311 = new wxStaticText( this, wxID_ANY, wxT("Masked:"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText311->Wrap( -1 );
-	fgSizer11->Add( m_staticText311, 0, wxALL, 5 );
-	
-	m_edge_masked_check_box = new wxCheckBox( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0 );
-	
-	m_edge_masked_check_box->Enable( false );
-	
-	fgSizer11->Add( m_edge_masked_check_box, 0, wxALL, 5 );
-	
-	m_staticText32 = new wxStaticText( this, wxID_ANY, wxT("Size:"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_staticText32->Wrap( -1 );
-	fgSizer11->Add( m_staticText32, 0, wxALL, 5 );
-	
-	m_edge_num_weights_text = new wxTextCtrl( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_edge_num_weights_text->Enable( false );
-	
-	fgSizer11->Add( m_edge_num_weights_text, 0, wxALL, 5 );
-	
-	m_edge_destroy_button = new wxButton( this, wxID_ANY, wxT("Destroy"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_edge_destroy_button->Enable( false );
-	
-	fgSizer11->Add( m_edge_destroy_button, 0, wxALL, 5 );
-	
-	m_edge_randomize_button = new wxButton( this, wxID_ANY, wxT("Randomize"), wxDefaultPosition, wxDefaultSize, 0 );
-	fgSizer11->Add( m_edge_randomize_button, 0, wxALL, 5 );
-	
-	bSizer6->Add( fgSizer11, 1, wxEXPAND, 5 );
-	
-	fgSizer7->Add( bSizer6, 1, wxEXPAND, 5 );
-	
-	this->SetSizer( fgSizer7 );
+	this->SetSizer( bSizer2 );
 	this->Layout();
 	
 	// Connect Events
@@ -148,8 +68,6 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->Connect( m_file_quit->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Connect( m_train_greedy->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Connect( m_visualize_reconstructions->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );
-	m_vertex_apply_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
-	m_edge_randomize_button->Connect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }
 
 TrainGui::~TrainGui()
@@ -161,8 +79,6 @@ TrainGui::~TrainGui()
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );
-	m_vertex_apply_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnNeuronsApplyChanges ), NULL, this );
-	m_edge_randomize_button->Disconnect( wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( TrainGui::OnEdgeRandomize ), NULL, this );
 }
 
 GreedyLearningGui::GreedyLearningGui( wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style ) : wxFrame( parent, id, title, pos, size, style )

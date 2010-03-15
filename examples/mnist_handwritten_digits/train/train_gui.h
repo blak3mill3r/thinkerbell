@@ -19,12 +19,11 @@
 #include <wx/settings.h>
 #include <wx/statusbr.h>
 #include "dbn_graphviz_widget.h"
-#include <wx/stattext.h>
-#include <wx/checkbox.h>
-#include <wx/textctrl.h>
-#include <wx/button.h>
 #include <wx/sizer.h>
 #include <wx/frame.h>
+#include <wx/button.h>
+#include <wx/stattext.h>
+#include <wx/textctrl.h>
 #include <wx/spinctrl.h>
 #include "training_example_widget.h"
 #include "list_box_generic_container.h"
@@ -52,19 +51,6 @@ class TrainGui : public wxFrame
 		wxMenu* m_visualize;
 		wxStatusBar* m_statusBar1;
 		wxDbnGraphvizControl * m_graphviz_control;
-		wxStaticText* m_staticText31;
-		wxCheckBox* m_vertex_masked_check_box;
-		wxStaticText* m_staticText3;
-		wxTextCtrl* m_vertex_num_neurons_text;
-		wxStaticText* m_staticText12;
-		wxTextCtrl* m_vertex_neurons_name_text;
-		wxButton* m_vertex_apply_button;
-		wxStaticText* m_staticText311;
-		wxCheckBox* m_edge_masked_check_box;
-		wxStaticText* m_staticText32;
-		wxTextCtrl* m_edge_num_weights_text;
-		wxButton* m_edge_destroy_button;
-		wxButton* m_edge_randomize_button;
 		
 		// Virtual event handlers, overide them in your derived class
 		virtual void OnBitch( wxCommandEvent& event ){ event.Skip(); }
@@ -73,8 +59,6 @@ class TrainGui : public wxFrame
 		virtual void OnFileQuit( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnTrainGreedy( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnViewReconstructions( wxCommandEvent& event ){ event.Skip(); }
-		virtual void OnNeuronsApplyChanges( wxCommandEvent& event ){ event.Skip(); }
-		virtual void OnEdgeRandomize( wxCommandEvent& event ){ event.Skip(); }
 		
 	
 	public:

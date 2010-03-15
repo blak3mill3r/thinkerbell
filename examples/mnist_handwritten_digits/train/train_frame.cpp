@@ -39,7 +39,6 @@ void GreedyLearningFrame::OnChangeLearningRate( wxCommandEvent& event )
 {
   double learning_rate;
   m_learning_rate_text->GetValue().ToDouble(&learning_rate);
-  cout << "fukcin setting it to " << (float)learning_rate << endl;
   app->learning_rate = (float)learning_rate;
 }
 
@@ -106,14 +105,12 @@ void TrainFrame::OnTrainGreedy( wxCommandEvent& event )
 void TrainFrame::OnDeleteVertex( Vertex v )
 {
   app->dbn.delete_vertex(v);
-  cout << "Deleted " << v << endl;
   update_dbn_controls();
 }
 
 void TrainFrame::OnDeleteEdge( Edge e )
 {
   app->dbn.delete_edge(e);
-  cout << "Deleted edge" << endl;
   update_dbn_controls();
 }
 
@@ -130,12 +127,13 @@ void TrainFrame::OnFileNew( wxCommandEvent& event )
 void TrainFrame::OnFileOpen( wxCommandEvent& event )
 {
 	wxFileDialog* openFileDialog =
+
 		new wxFileDialog( this
                     , _("Open file")
                     , _("")
                     , _("")
                     , _("*.dbn")
-                    , wxOPEN
+                    , wxFD_OPEN
                     , wxDefaultPosition
                     );
  
@@ -157,7 +155,7 @@ void TrainFrame::OnFileOpen( wxCommandEvent& event )
     update_dbn_controls();
 
 		SetStatusText(path, 0);
-		SetStatusText(openFileDialog->GetDirectory(),1);
+		SetStatusText(openFileDialog->GetDirectory(),0);
 	}
 }
 
@@ -174,7 +172,7 @@ void TrainFrame::OnFileSaveAs( wxCommandEvent& event )
                     , _("")
                     , _("")
                     , _("*.dbn")
-                    , wxSAVE
+                    , wxFD_SAVE
                     , wxDefaultPosition
                     );
  
@@ -194,7 +192,7 @@ void TrainFrame::OnFileSaveAs( wxCommandEvent& event )
     }
 
 		SetStatusText(path, 0);
-		SetStatusText(saveasFileDialog->GetDirectory(),1);
+		SetStatusText(saveasFileDialog->GetDirectory(),0);
 	}
 }
 
@@ -237,33 +235,10 @@ void TrainFrame::update_vertex_controls()
 
 void TrainFrame::update_edge_controls()
 {
-  Edge * ep = SelectedEdge();
-  if(ep==NULL) return;
-  // update masked check box:
-  m_edge_masked_check_box->SetValue( app->dbn.is_masked(*ep) );
-
-  // update size text field:
-  m_edge_num_weights_text->SetValue( wxString::Format( wxT("%d")
-                                                     , app->dbn.weights_size(*ep)
-                                                     )
-                                   );
-
-  
 }
 
 void TrainFrame::update_dbn_controls()
 {
-  /*
-  for_each( app->dbn.topological_order_begin()
-          , app->dbn.topological_order_end()
-          , lambda::bind( &TrainFrame::append_vertex
-                        , this
-                        , lambda::_1
-                        ) 
-          );
-  */
-  update_vertex_controls();
-
   m_graphviz_control->update_graphviz( app->dbn );
 }
 

@@ -1,7 +1,9 @@
 #include "dbn_graphviz_widget.h"
+#include "dbn_graphviz_property_writers.h"
 
-#include <boost/graph/graphviz.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graphviz.hpp>
+
 #include "train_frame.h"
 
 using namespace std;
@@ -9,11 +11,12 @@ using namespace thinkerbell;
 using namespace boost;
 using namespace boost::graph;
 
-BEGIN_EVENT_TABLE(wxDbnGraphvizControl, wxPanel)
-    EVT_CONTEXT_MENU(        wxDbnGraphvizControl::OnContext)
-    EVT_LEFT_DOWN(wxDbnGraphvizControl::mouseDown)
-    EVT_LEFT_UP(wxDbnGraphvizControl::mouseReleased)
-    EVT_PAINT(wxDbnGraphvizControl::paintEvent)
+BEGIN_EVENT_TABLE(wxDbnGraphvizControl, wxScrolled<wxWindow>)
+    EVT_CONTEXT_MENU(        wxDbnGraphvizControl::OnContext     )
+    EVT_LEFT_DOWN(           wxDbnGraphvizControl::mouseDown     )
+    EVT_SCROLLWIN(           wxDbnGraphvizControl::HandleOnScroll      )
+    EVT_LEFT_UP(             wxDbnGraphvizControl::mouseReleased )
+    EVT_PAINT(               wxDbnGraphvizControl::paintEvent    )
 END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(wxVertexMenu, wxMenu)
@@ -32,7 +35,7 @@ wxVertexMenu::wxVertexMenu(Vertex v, wxDbnGraphvizControl * parent_)
   : vertex(v)
   , parent( parent_ )
 {
-  Append(ID_VERTEX_MENU_DELETE, wxT("Delete"));
+  Append(ID_VERTEX_MENU_DELETE, wxT("delete"));
 }
 
 void wxVertexMenu::OnDelete( wxCommandEvent& e )
@@ -64,84 +67,54 @@ void wxEdgeMenu::OnRandomize( wxCommandEvent& e )
   poo->OnEdgeRandomize(edge);
 }
 
-wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent, const wxSize& size)
-  : wxPanel(parent)
+wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent)
+  : wxScrolled<wxWindow>(parent)
   , m_graph_image(NULL)
 {
-  SetMinSize( size );
+  SetScrollRate(1,1);
+  SetVirtualSize(1,1);
 }
 
-  class dbn_graph_property_writer {
-  public:
-    dbn_graph_property_writer() {}
-    void operator()(ostream& out) const
-    {
-      out << "\
-graph [\
-];";
-    }
-  };
+//TODO replace the paintNow nonsense with the 2.9 way, i.e. HandleOnDraw instead
+//that should make this HandleOnScroll unneccesary
+void wxDbnGraphvizControl::HandleOnScroll(wxScrollWinEvent& event)
+{
+  wxScrolled<wxWindow>::HandleOnScroll(event);
+  paintNow();
+}
 
-  class dbn_vertex_property_writer {
-  public:
-    dbn_vertex_property_writer(DBNGraph g) : graph(g) {}
-    template <class VertexOrEdge>
-    void operator()(ostream& out, const VertexOrEdge& v) const
-    {
-      out << "\
-[href=\"v" << v << "\"\
-, width = 1.0\
-, height = 0.125\
-, label = \"" << graph[v].name << "\"\
-, fontname = \"Mono\"\
-, shape = polygon\
-, sides = 4\
- ]";
-    }
-  private:
-    DBNGraph graph;
-  };
-
-  class dbn_edge_property_writer {
-  public:
-    dbn_edge_property_writer(DBNGraph g) : graph(g) {}
-    template <class VertexOrEdge>
-    void operator()(ostream& out, const VertexOrEdge& e) const
-    {
-      out << " [href=\"e" << e << "\", label=\"10 million weights\", shape=Msquare] ";
-    }
-  private:
-    DBNGraph graph;
-  };
-
+// right click brings up a context menu
+// for a vertex or an edge
 void wxDbnGraphvizControl::OnContext(wxContextMenuEvent& event)
 {
-  wxPoint point = event.GetPosition();
-  point = ScreenToClient(point);
+  wxPoint abs_point = ScreenToClient(event.GetPosition());
+  wxPoint point;
+  CalcUnscrolledPosition( abs_point.x, abs_point.y, &point.x, &point.y);
   pair< Vertex, wxRegion > v;
   BOOST_FOREACH(v, m_graph_image_map_vertices)
   {
     if( v.second.Contains(point) )
-      PopupMenu(new wxVertexMenu(v.first, this), point.x, point.y);
+      PopupMenu(new wxVertexMenu(v.first, this), abs_point.x, abs_point.y);
   }
   pair< Edge, wxRegion > e;
   BOOST_FOREACH(e, m_graph_image_map_edges)
   {
     if( e.second.Contains(point) )
-      PopupMenu(new wxEdgeMenu(e.first, this), point.x, point.y);
+      PopupMenu(new wxEdgeMenu(e.first, this), abs_point.x, abs_point.y);
   }
   
 }
 
+// updates the widget graphics and image-map in a hackish way
+// opens 'dot' from graphviz as a subprocess
 void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
 {
-  m_graph_image_map_string.Clear();
-  m_graph_image_map_vertices.clear();
-  m_graph_image_map_edges.clear();
   wxInitAllImageHandlers(); // FIXME just need PNG
-  //FIXME support sizes other than 512x512
-  wxString pngcmd = _("dot -Tpng -Gviewport=512,512 -Gdpi=72 -Gsize=512,512");
-  wxString imapcmd = _("dot -Timap -Gviewport=512,512 -Gdpi=72 -Gsize=512,512");
+  wxString pngcmd = _("dot -Tpng");
+  wxString imapcmd = _("dot -Timap");
+  wxString image_map_string;
+  //wxString pngcmd = _("dot -Tpng -Gviewport=512,512 -Gdpi=72 -Gsize=512,512");
+  //wxString imapcmd = _("dot -Timap -Gviewport=512,512 -Gdpi=72 -Gsize=512,512");
 
   ostringstream outstream;
   write_graphviz( outstream
@@ -151,8 +124,6 @@ void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
                 , dbn_graph_property_writer()
                 );
   
-  cout << "dot input: \n" << outstream.str() << endl;
-
   wxString input = wxString::FromAscii( outstream.str().c_str() );
 
   // generate PNG
@@ -164,7 +135,7 @@ void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
     out->Write( input.mb_str(), input.Length() );
     out->Close();
 
-    unsigned char png_data[0x10000];
+    unsigned char png_data[0x10000]; // FIXME ffs
     wxMemoryOutputStream memout(png_data, 0x10000);
     wxMemoryInputStream memin(png_data, 0x10000);
     in->Read( memout );
@@ -172,6 +143,7 @@ void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
     // update GUI
     if(m_graph_image != NULL) delete m_graph_image;
     m_graph_image = new wxImage(memin);
+    m_graph_image_size = wxSize(m_graph_image->GetWidth(), m_graph_image->GetHeight());
   }
 
   // generate image map
@@ -185,14 +157,16 @@ void wxDbnGraphvizControl::update_graphviz(DBN &dbn)
 
     wxStringOutputStream stringout;
     in->Read( stringout );
-    m_graph_image_map_string = stringout.GetString();
+    image_map_string = stringout.GetString();
   }
 
-  parse_image_map(dbn);
+  parse_image_map(dbn, image_map_string);
+  SetVirtualSize( m_graph_image_size );
 
   paintNow();
 }
 
+// parses the rectangular region parts of the image map string
 wxRegion wxDbnGraphvizControl::parse_rectangle_string( string tl, string br )
 {
   int l = atoi( tl.substr(0, tl.find(',')).c_str() );
@@ -202,10 +176,13 @@ wxRegion wxDbnGraphvizControl::parse_rectangle_string( string tl, string br )
   return wxRegion( wxPoint(l,t), wxPoint(r,b) );
 }
 
-void wxDbnGraphvizControl::parse_image_map(DBN &dbn)
+// parses the image map string generated by 'dot -Timap' or such
+void wxDbnGraphvizControl::parse_image_map(DBN &dbn, const wxString& image_map_string)
 {
-  istringstream istream( string(m_graph_image_map_string.ToAscii()) );
-  cout << "image map: " << m_graph_image_map_string.ToAscii() << endl;
+  m_graph_image_map_vertices.clear();
+  m_graph_image_map_edges.clear();
+  cout << " parse image map string: " << image_map_string.ToAscii() << endl;
+  istringstream istream( string(image_map_string.ToAscii()) );
   string line;
   while( !istream.eof() )
   {
@@ -230,49 +207,36 @@ void wxDbnGraphvizControl::parse_image_map(DBN &dbn)
         string tl, br; istream >> tl; istream >> br;   // read the rectangle
         m_graph_image_map_edges.insert( make_pair( e, parse_rectangle_string( tl, br ) ) );
       }
-      else { cout << "Bad, throw it out: " << foo << endl;}
     }
   }
   
 }
  
-/*
- * Called by the system of by wxWidgets when the panel needs
- * to be redrawn. You can also trigger this call by
- * calling Refresh()/Update().
- */
- 
 void wxDbnGraphvizControl::paintEvent(wxPaintEvent & evt)
 {
-    // depending on your system you may need to look at double-buffered dcs
-    wxPaintDC dc(this);
+    wxPaintDC dc(this); // FIXME double-buffered contexts?
     render(dc);
 }
  
-/*
- * Alternatively, you can use a clientDC to paint on the panel
- * at any time. Using this generally does not free you from
- * catching paint events, since it is possible that e.g. the window
- * manager throws away your drawing when the window comes to the
- * background, and expects you will redraw it when the window comes
- * back (by sending a paint event).
- */
 void wxDbnGraphvizControl::paintNow()
 {
-    // depending on your system you may need to look at double-buffered dcs
-    wxClientDC dc(this);
+    wxClientDC dc(this);// FIXME double-buffered contexts?
     render(dc);
 }
  
 void wxDbnGraphvizControl::render(wxDC&  dc)
 {
+  //dc.Clear(); // to support transparency in the graphviz PNG clearing here would be good
+  DoPrepareDC(dc); // this does the scroll translation for us
   if(m_graph_image == NULL) return;
+  // TODO only construct the wxBitmap when the image changes
   wxBitmap * graph_bmp = new wxBitmap( *m_graph_image );
   dc.DrawBitmap( *graph_bmp, 0, 0 );
 }
  
 void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
 {
+  /*
   pair< Vertex, wxRegion > v;
   BOOST_FOREACH(v, m_graph_image_map_vertices)
   {
@@ -286,6 +250,7 @@ void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
       cout << "you clicked on edge " << e.first << endl;
   }
   paintNow();
+  */
 }
 
 void wxDbnGraphvizControl::mouseReleased(wxMouseEvent& event)
