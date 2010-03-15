@@ -67,6 +67,7 @@ void wxEdgeMenu::OnRandomize( wxCommandEvent& e )
   poo->OnEdgeRandomize(edge);
 }
 
+//TODO make it show the graph image centered when it is smaller than the size of the widget
 wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent)
   : wxScrolled<wxWindow>(parent)
   , m_graph_image(NULL)
@@ -94,13 +95,19 @@ void wxDbnGraphvizControl::OnContext(wxContextMenuEvent& event)
   BOOST_FOREACH(v, m_graph_image_map_vertices)
   {
     if( v.second.Contains(point) )
+    {
       PopupMenu(new wxVertexMenu(v.first, this), abs_point.x, abs_point.y);
+      break;
+    }
   }
   pair< Edge, wxRegion > e;
   BOOST_FOREACH(e, m_graph_image_map_edges)
   {
     if( e.second.Contains(point) )
+    {
       PopupMenu(new wxEdgeMenu(e.first, this), abs_point.x, abs_point.y);
+      break;
+    }
   }
   
 }
@@ -181,7 +188,6 @@ void wxDbnGraphvizControl::parse_image_map(DBN &dbn, const wxString& image_map_s
 {
   m_graph_image_map_vertices.clear();
   m_graph_image_map_edges.clear();
-  cout << " parse image map string: " << image_map_string.ToAscii() << endl;
   istringstream istream( string(image_map_string.ToAscii()) );
   string line;
   while( !istream.eof() )
@@ -226,7 +232,7 @@ void wxDbnGraphvizControl::paintNow()
  
 void wxDbnGraphvizControl::render(wxDC&  dc)
 {
-  //dc.Clear(); // to support transparency in the graphviz PNG clearing here would be good
+  dc.Clear();  // TODO only clear the DC when the size of the image has changed?
   DoPrepareDC(dc); // this does the scroll translation for us
   if(m_graph_image == NULL) return;
   // TODO only construct the wxBitmap when the image changes
@@ -236,21 +242,6 @@ void wxDbnGraphvizControl::render(wxDC&  dc)
  
 void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
 {
-  /*
-  pair< Vertex, wxRegion > v;
-  BOOST_FOREACH(v, m_graph_image_map_vertices)
-  {
-    if( v.second.Contains(event.GetPosition()) )
-      cout << "you clicked on vertex " << v.first << endl;
-  }
-  pair< Edge, wxRegion > e;
-  BOOST_FOREACH(e, m_graph_image_map_edges)
-  {
-    if( e.second.Contains(event.GetPosition()) )
-      cout << "you clicked on edge " << e.first << endl;
-  }
-  paintNow();
-  */
 }
 
 void wxDbnGraphvizControl::mouseReleased(wxMouseEvent& event)
