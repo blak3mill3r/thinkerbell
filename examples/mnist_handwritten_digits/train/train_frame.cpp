@@ -102,6 +102,7 @@ void TrainFrame::toggle_vertex( Vertex v )
     app->dbn.unmask(v);
   else
     app->dbn.mask(v);
+  update_dbn_controls();
 }
 
 void TrainFrame::stats_vertex( Vertex v )
@@ -192,6 +193,13 @@ void TrainFrame::OnFileOpen( wxCommandEvent& event )
 
 void TrainFrame::OnFileSave( wxCommandEvent& event )
 {
+  if(current_dbn_file.Length() == 0) OnFileSaveAs(event);
+  else
+  {
+    try { app->save_dbn_file(current_dbn_file.char_str()); }
+    catch(boost::archive::archive_exception e)
+    { SetStatusText(_("Failure to save file! Oh noes!"), 0); }
+  }
 }
 
 void TrainFrame::OnFileSaveAs( wxCommandEvent& event )
@@ -215,6 +223,7 @@ void TrainFrame::OnFileSaveAs( wxCommandEvent& event )
 
     try {
       app->save_dbn_file(path.char_str());
+      current_dbn_file = path;
     }
     catch(boost::archive::archive_exception e)
     {

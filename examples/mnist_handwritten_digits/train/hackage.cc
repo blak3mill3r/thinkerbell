@@ -81,7 +81,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
           first_one = false;
         }
       }
-      activate_neurons( v, (dbn->is_top_vertex(v)), true ); // binary IFF top
+      activate_neurons( v, (dbn->is_top_vertex(v)) ); // binary IFF top
   
     }
   }

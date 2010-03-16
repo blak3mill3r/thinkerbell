@@ -15,6 +15,8 @@
 #define ID_EDGE_MENU_DELETE          69002
 #define ID_EDGE_MENU_RANDOMIZE       69003
 
+class TrainFrame;
+
 class wxDbnGraphvizControl : public wxScrolled<wxWindow>
 {
   
@@ -30,6 +32,8 @@ public:
   void mouseDown(wxMouseEvent& event);
   void mouseReleased(wxMouseEvent& event);
   void OnContext(wxContextMenuEvent& event);
+
+  TrainFrame * train_frame();
   
   DECLARE_EVENT_TABLE()
 private:

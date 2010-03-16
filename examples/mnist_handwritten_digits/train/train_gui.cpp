@@ -27,6 +27,10 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	m_file_save = new wxMenuItem( m_file, ID_FILE_SAVE, wxString( wxT("&Save") ) , wxEmptyString, wxITEM_NORMAL );
 	m_file->Append( m_file_save );
 	
+	wxMenuItem* m_file_save_as;
+	m_file_save_as = new wxMenuItem( m_file, ID_FILE_SAVE, wxString( wxT("Save &as") ) , wxEmptyString, wxITEM_NORMAL );
+	m_file->Append( m_file_save_as );
+	
 	m_file->AppendSeparator();
 	
 	wxMenuItem* m_file_quit;
@@ -69,6 +73,7 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->Connect( m_file_new->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnBitch ) );
 	this->Connect( m_file_open->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileOpen ) );
 	this->Connect( m_file_save->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileSave ) );
+	this->Connect( m_file_save_as->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileSaveAs ) );
 	this->Connect( m_file_quit->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Connect( m_train_greedy->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Connect( m_visualize_reconstructions->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );
@@ -80,6 +85,7 @@ TrainGui::~TrainGui()
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnBitch ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileOpen ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileSave ) );
+	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileSaveAs ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnFileQuit ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnTrainGreedy ) );
 	this->Disconnect( wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler( TrainGui::OnViewReconstructions ) );

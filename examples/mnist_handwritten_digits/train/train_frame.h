@@ -73,6 +73,8 @@ private:
   void update_vertex_controls();
   void update_edge_controls();
 
+  wxString current_dbn_file;
+
 };
 
 

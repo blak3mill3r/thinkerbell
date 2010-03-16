@@ -42,10 +42,10 @@ wxVertexMenu::wxVertexMenu(Vertex v, wxDbnGraphvizControl * parent_)
 }
 
 void wxVertexMenu::OnDelete( wxCommandEvent& e )
-  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnDeleteVertex(vertex); }
+  { parent->train_frame()->OnDeleteVertex(vertex); }
 
 void wxVertexMenu::OnZeroBiases( wxCommandEvent& e )
-  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnZeroBiases(vertex); }
+  { parent->train_frame()->OnZeroBiases(vertex); }
 
 //////////////////
 // wxEdgeMenu //
@@ -59,10 +59,10 @@ wxEdgeMenu::wxEdgeMenu(Edge e, wxDbnGraphvizControl * parent_)
 }
 
 void wxEdgeMenu::OnDelete( wxCommandEvent& e )
-  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnDeleteEdge(edge); }
+  { parent->train_frame()->OnDeleteEdge(edge); }
 
 void wxEdgeMenu::OnRandomize( wxCommandEvent& e )
-  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnEdgeRandomize(edge); }
+  { parent->train_frame()->OnEdgeRandomize(edge); }
 
 //TODO make it show the graph image centered when it is smaller than the size of the widget
 wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent)
@@ -236,9 +236,13 @@ void wxDbnGraphvizControl::render(wxDC&  dc)
   wxBitmap * graph_bmp = new wxBitmap( *m_graph_image );
   dc.DrawBitmap( *graph_bmp, 0, 0 );
 }
+
+TrainFrame * wxDbnGraphvizControl::train_frame()
+  { return ((TrainFrame *)static_cast< TrainFrame * >(GetParent())); }
  
 void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
 {
+  bool changed = false;
   wxPoint abs_point = event.GetPosition();
   wxPoint point;
   CalcUnscrolledPosition( abs_point.x, abs_point.y, &point.x, &point.y);
@@ -247,8 +251,9 @@ void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
   {
     if( v.second.Contains(point) )
     {
-      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->toggle_vertex(v.first);
-      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->stats_vertex(v.first);
+      train_frame()->toggle_vertex(v.first);
+      train_frame()->stats_vertex(v.first);
+      changed = true;
       break;
     }
   }
@@ -257,11 +262,12 @@ void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
   {
     if( e.second.Contains(point) )
     {
-      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->stats_edge(e.first);
+      train_frame()->stats_edge(e.first);
+      changed = true;
       break;
     }
   }
-  
+
 }
 
 void wxDbnGraphvizControl::mouseReleased(wxMouseEvent& event)

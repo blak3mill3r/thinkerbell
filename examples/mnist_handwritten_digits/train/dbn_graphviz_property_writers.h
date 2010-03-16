@@ -16,6 +16,7 @@ using std::ostream;
     {
       out << "\
 graph [\
+bgcolor = \"#EEEEFFFF\"\
 ];";
     }
   };
@@ -27,11 +28,14 @@ graph [\
     {
       out << "\
 [href=\"v" << v << "\"\
-, width = 1.0\
+, width = 0.125\
 , height = 0.125\
 , label = \"" << graph[v].name << "\"\
 , fontname = \"Courier New\"\
 , fontsize = 14\
+, fillcolor = \"#" <<( graph[v].mask ? "FF666600":"FF6666FF" ) << "\"\
+, color = \"#000000\"\
+, style = filled\
 , shape = polygon\
 , sides = 4\
  ]";

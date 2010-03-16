@@ -56,6 +56,7 @@ class TrainGui : public wxFrame
 		virtual void OnBitch( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnFileOpen( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnFileSave( wxCommandEvent& event ){ event.Skip(); }
+		virtual void OnFileSaveAs( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnFileQuit( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnTrainGreedy( wxCommandEvent& event ){ event.Skip(); }
 		virtual void OnViewReconstructions( wxCommandEvent& event ){ event.Skip(); }
