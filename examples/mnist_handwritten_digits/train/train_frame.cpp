@@ -72,7 +72,7 @@ void VisualizeReconstructionsFrame::OnTimerEvent(wxTimerEvent &event)
 
 void VisualizeReconstructionsFrame::OnChangeExample(wxSpinEvent& event)
 {
-  m_timer.Start(1000);
+  //m_timer.Start(1000);
   float fantasy_image_[28*28];
   float fantasy_labels_[16];
 
@@ -96,6 +96,27 @@ TrainFrame::TrainFrame( wxWindow* parent, TrainApp* app_ )
 {
 }
 
+void TrainFrame::toggle_vertex( Vertex v )
+{
+  if(app->dbn.is_masked(v))
+    app->dbn.unmask(v);
+  else
+    app->dbn.mask(v);
+}
+
+void TrainFrame::stats_vertex( Vertex v )
+{
+  DBNStats stats(&app->dbn);
+  cout << (app->dbn.is_masked(v) ? "masked" : "unmasked") << endl;
+  stats.print_vertex(v);
+}
+
+void TrainFrame::stats_edge( Edge e )
+{
+  DBNStats stats(&app->dbn);
+  stats.print_edge(e);
+}
+
 void TrainFrame::OnTrainGreedy( wxCommandEvent& event )
 {
   GreedyLearningFrame * greedy_learning_frame = new GreedyLearningFrame( (wxWindow*)this, app );
@@ -106,6 +127,15 @@ void TrainFrame::OnDeleteVertex( Vertex v )
 {
   app->dbn.delete_vertex(v);
   update_dbn_controls();
+}
+
+void TrainFrame::OnZeroBiases( Vertex v )
+{
+  int num_biases = app->dbn.neurons_size(v);
+  for_each( &app->dbn.m_graph[v].neurons->biases[0]
+          , &app->dbn.m_graph[v].neurons->biases[num_biases]
+          , lambda::_1 = 0.0
+          );
 }
 
 void TrainFrame::OnDeleteEdge( Edge e )

@@ -5,6 +5,7 @@
 #include <boost/graph/graphviz.hpp>
 
 #include "train_frame.h"
+#include <thinkerbell/deep_belief_network/stats.h>
 
 using namespace std;
 using namespace thinkerbell;
@@ -21,6 +22,7 @@ END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(wxVertexMenu, wxMenu)
   EVT_MENU( ID_VERTEX_MENU_DELETE, wxVertexMenu::OnDelete )
+  EVT_MENU( ID_VERTEX_MENU_ZERO_BIASES, wxVertexMenu::OnZeroBiases )
 END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE(wxEdgeMenu, wxMenu)
@@ -36,13 +38,14 @@ wxVertexMenu::wxVertexMenu(Vertex v, wxDbnGraphvizControl * parent_)
   , parent( parent_ )
 {
   Append(ID_VERTEX_MENU_DELETE, wxT("delete"));
+  Append(ID_VERTEX_MENU_ZERO_BIASES, wxT("zero biases"));
 }
 
 void wxVertexMenu::OnDelete( wxCommandEvent& e )
-{
-  TrainFrame * poo = static_cast< TrainFrame * >(parent->GetParent()); 
-  poo->OnDeleteVertex(vertex);
-}
+  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnDeleteVertex(vertex); }
+
+void wxVertexMenu::OnZeroBiases( wxCommandEvent& e )
+  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnZeroBiases(vertex); }
 
 //////////////////
 // wxEdgeMenu //
@@ -56,16 +59,10 @@ wxEdgeMenu::wxEdgeMenu(Edge e, wxDbnGraphvizControl * parent_)
 }
 
 void wxEdgeMenu::OnDelete( wxCommandEvent& e )
-{
-  TrainFrame * poo = static_cast< TrainFrame * >(parent->GetParent()); 
-  poo->OnDeleteEdge(edge);
-}
+  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnDeleteEdge(edge); }
 
 void wxEdgeMenu::OnRandomize( wxCommandEvent& e )
-{
-  TrainFrame * poo = static_cast< TrainFrame * >(parent->GetParent()); 
-  poo->OnEdgeRandomize(edge);
-}
+  { ((TrainFrame *)static_cast< TrainFrame * >(parent->GetParent()))->OnEdgeRandomize(edge); }
 
 //TODO make it show the graph image centered when it is smaller than the size of the widget
 wxDbnGraphvizControl::wxDbnGraphvizControl(wxFrame* parent)
@@ -242,6 +239,29 @@ void wxDbnGraphvizControl::render(wxDC&  dc)
  
 void wxDbnGraphvizControl::mouseDown(wxMouseEvent& event)
 {
+  wxPoint abs_point = event.GetPosition();
+  wxPoint point;
+  CalcUnscrolledPosition( abs_point.x, abs_point.y, &point.x, &point.y);
+  pair< Vertex, wxRegion > v;
+  BOOST_FOREACH(v, m_graph_image_map_vertices)
+  {
+    if( v.second.Contains(point) )
+    {
+      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->toggle_vertex(v.first);
+      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->stats_vertex(v.first);
+      break;
+    }
+  }
+  pair< Edge, wxRegion > e;
+  BOOST_FOREACH(e, m_graph_image_map_edges)
+  {
+    if( e.second.Contains(point) )
+    {
+      ((TrainFrame *)static_cast< TrainFrame * >(GetParent()))->stats_edge(e.first);
+      break;
+    }
+  }
+  
 }
 
 void wxDbnGraphvizControl::mouseReleased(wxMouseEvent& event)

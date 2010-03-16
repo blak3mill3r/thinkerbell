@@ -268,11 +268,18 @@
                 <event name="OnSize"></event>
                 <event name="OnUpdateUI"></event>
             </object>
-            <object class="wxBoxSizer" expanded="1">
+            <object class="wxFlexGridSizer" expanded="1">
+                <property name="cols">1</property>
+                <property name="flexible_direction">wxVERTICAL</property>
+                <property name="growablecols">0</property>
+                <property name="growablerows">0</property>
+                <property name="hgap">0</property>
                 <property name="minimum_size"></property>
-                <property name="name">bSizer2</property>
-                <property name="orient">wxVERTICAL</property>
+                <property name="name">fgSizer4</property>
+                <property name="non_flexible_grow_mode">wxFLEX_GROWMODE_SPECIFIED</property>
                 <property name="permission">none</property>
+                <property name="rows">1</property>
+                <property name="vgap">0</property>
                 <object class="sizeritem" expanded="1">
                     <property name="border">5</property>
                     <property name="flag">wxALL|wxEXPAND</property>

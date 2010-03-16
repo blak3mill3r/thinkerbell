@@ -34,7 +34,7 @@ public:
   DBNHackage( DBN * dbn_ );
   ~DBNHackage();
   void perceive_and_reconstruct(float * original, float * fantasy_image, float * fantasy_labels);
-  void activate_neurons( Vertex v );
+  void activate_neurons( Vertex v, bool binary = false );
   void activate_edge_up( Edge e, bool first_one );
   void activate_edge_down( Edge e );
 };

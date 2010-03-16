@@ -10,9 +10,10 @@
 #include "wx/image.h"
 #include <thinkerbell/deep_belief_network.h>
 
-#define ID_VERTEX_MENU_DELETE   69000
-#define ID_EDGE_MENU_DELETE     69001
-#define ID_EDGE_MENU_RANDOMIZE  69002
+#define ID_VERTEX_MENU_DELETE        69000
+#define ID_VERTEX_MENU_ZERO_BIASES   69001
+#define ID_EDGE_MENU_DELETE          69002
+#define ID_EDGE_MENU_RANDOMIZE       69003
 
 class wxDbnGraphvizControl : public wxScrolled<wxWindow>
 {
@@ -49,6 +50,7 @@ public:
   wxVertexMenu(thinkerbell::Vertex v, wxDbnGraphvizControl * parent_);
 
   void OnDelete( wxCommandEvent& e );
+  void OnZeroBiases( wxCommandEvent& e );
   DECLARE_EVENT_TABLE()
 private:
   wxDbnGraphvizControl * parent;

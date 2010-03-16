@@ -114,8 +114,8 @@ TrainApp::TrainApp()
   , batch_size(16)
   , num_batches_on_host(60000/batch_size)
   , learning_rate(0.1)
-  , weight_cost(0.0002)
-  , momentum(0.5)
+  , weight_cost(0.002)
+  , momentum(0.9)
 {
   load_examples();
 }

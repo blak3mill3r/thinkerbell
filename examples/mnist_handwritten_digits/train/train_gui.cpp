@@ -52,13 +52,17 @@ TrainGui::TrainGui( wxWindow* parent, wxWindowID id, const wxString& title, cons
 	this->SetMenuBar( m_main_menu_bar );
 	
 	m_statusBar1 = this->CreateStatusBar( 1, wxST_SIZEGRIP, wxID_ANY );
-	wxBoxSizer* bSizer2;
-	bSizer2 = new wxBoxSizer( wxVERTICAL );
+	wxFlexGridSizer* fgSizer4;
+	fgSizer4 = new wxFlexGridSizer( 1, 1, 0, 0 );
+	fgSizer4->AddGrowableCol( 0 );
+	fgSizer4->AddGrowableRow( 0 );
+	fgSizer4->SetFlexibleDirection( wxVERTICAL );
+	fgSizer4->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 	
 	m_graphviz_control = new wxDbnGraphvizControl( this );
-	bSizer2->Add( m_graphviz_control, 1, wxALL|wxEXPAND, 5 );
+	fgSizer4->Add( m_graphviz_control, 1, wxALL|wxEXPAND, 5 );
 	
-	this->SetSizer( bSizer2 );
+	this->SetSizer( fgSizer4 );
 	this->Layout();
 	
 	// Connect Events

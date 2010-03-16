@@ -30,7 +30,7 @@ void DBNStats::print_overview()
 
 void DBNStats::print_vertex(Vertex v)
 {
-  cout << "  --Vertex " << v << endl;
+  cout << "  --Vertex " << dbn->neurons_name(v) << endl;
   cout << "    * bias avg =\t"
        << bias_avg(v)
        << endl;

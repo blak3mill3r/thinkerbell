@@ -81,12 +81,10 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
           first_one = false;
         }
       }
-      activate_neurons( v );
+      activate_neurons( v, (dbn->is_top_vertex(v)), true ); // binary IFF top
   
     }
   }
-  //cout << "activate each vertex in topo order -- is done" << endl;
-  //
   #define AGS_ITERATIONS 0
   //AGS steps
   for(int agsi=0; agsi<AGS_ITERATIONS; ++agsi)
@@ -94,7 +92,9 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
     // down-act each training edge
     BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()))
     {
+      Vertex v = source(e, dbn->m_graph);
       activate_edge_down( e );
+      activate_neurons(v, true); // always binary
     }
     // up-act each training edge
     bool first_one = true;
@@ -103,7 +103,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
       activate_edge_up( e, first_one );
       first_one = false;
     }
-    activate_neurons( dbn->top_vertex() );
+    activate_neurons( dbn->top_vertex(), true ); // always binary
   }
 
   // for each vertex in reverse topological order except the top one
@@ -118,9 +118,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
       // set v's activations based on energies
       activate_neurons( v );
     }
-    //else cout << "skipping down-activation on the top vertex which is " << v << endl;
   }
-  //cout << "activate down in reverse topo order -- is done" << endl;
 
   // the stuff of interest:
   Vertex digitv  = dbn->find_neurons_by_name("digit image")
@@ -142,51 +140,23 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
 }
 
 // sets v's binary states based on energies
-void DBNHackage::activate_neurons( Vertex v )
+void DBNHackage::activate_neurons( Vertex v, bool binary )
 {
   int size = dbn->neurons_size(v);
   float * biases = dbn->biases(v);
 
-  if( dbn->is_input_vertex(v) )
+  for(int i=0; i<size; ++i)
   {
-    //cout << "activate neurons " << dbn->neurons_name(v) << " which is an input node" << endl;
-    for(int i=0; i<size; ++i)
+    float rand = gaussian_random();
+    float nrg = neuron_values[v][i];
+    float bias = biases[i];
+    if(binary)
     {
-      /*
-      if(dbn->neurons_name(v) == "digit labels")
-      {
-        cout << "The energy in is " << neuron_values[v][i] << endl ;
-        cout << "The bias is " << biases[i] << endl ;
-        cout << "The sigmoid is " << sigmoid(neuron_values[v][i] + biases[i]) << endl ;
-      }
-      */
-      //neuron_values[v][i] = sigmoid(neuron_values[v][i] + biases[i]) ;
-      //float rand = ((gaussian_random() * 0.5) + 0.5);
-      float nrg = neuron_values[v][i];
-      float bias = biases[i];
-      //bool act = ( sigmoid(nrg+bias) > rand );
-      //cout << "input... rand: " << rand << "\nnrg: " << nrg << "\nbias: " << bias << "\nsigmoid(nrg+bias): " << sigmoid(nrg+bias) << "\nwill activate: " << act << endl;
-      neuron_values[v][i] = sigmoid(nrg+bias);//act ? 1 : 0;
-    }
-  }
-  else
-  {
-    //static int balls = 0;
-    //cout << "activate neurons " << dbn->neurons_name(v) << " which is normal node" << endl;
-    for(int i=0; i<size; ++i)
-    {
-      float rand = gaussian_random();
-      float nrg = neuron_values[v][i];
-      float bias = biases[i];
-      //bool act = (i==((balls)%16)); // ( sigmoid(nrg+bias) > rand );
       bool act = ( sigmoid(nrg+bias) > rand );
       neuron_values[v][i] = act ? 1 : 0;
-      //cout << act << "\tr: " << rand << "\tnrg: " << nrg << "\tb: " << bias << "\tsig(): " << sigmoid(nrg+bias) << endl;
-      //cout << neuron_values[v][i];
-      //neuron_values[v][i] = ( sigmoid(neuron_values[v][i] + biases[i]) > gaussian_random() ) ? 1 : 0;
     }
-    //cout << endl;
-    //balls++;
+    else
+      neuron_values[v][i] = sigmoid(nrg+bias);
   }
 }
 

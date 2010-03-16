@@ -199,6 +199,7 @@ void DBNScheduler::operator()()
     //exec_end[0].record( *streams[1] );
 
     int zzz = 0;
+    int epoch = 0;
     while(true)
     for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
     {
@@ -207,6 +208,12 @@ void DBNScheduler::operator()()
       int bufb = ((i+1)%3); // bufb weights will be used as the source of weights and deltas (because it was written to last step and is guaranteed not to be written during this iteration)
       int bufc = ((i+2)%3); // bufc weights will be written to because it will be bufc next iteration and will be used for activation steps
       int streami = i%2;
+
+      float use_momentum = momentum;
+      if(epoch < 5000)
+        use_momentum = momentum * (epoch/5000.0);
+      cout << "Use momentum " << use_momentum << endl;
+      epoch++;
 
       int example_index = trainer->get_random_example_index();
 
@@ -324,21 +331,21 @@ void DBNScheduler::operator()()
         ops.decelerate_weights( *streams[streami]
                               , dmemory->weight_deltas_ptr( e, bufc )
                               , dmemory->weight_deltas_ptr( e, bufb )
-                              , momentum
+                              , use_momentum
                               , dbn->neurons_size( topv )
                               , dbn->neurons_size( sourcev )
                               );
         ops.decelerate_biases( *streams[streami]
                              , dmemory->bias_deltas_ptr( sourcev, bufc )
                              , dmemory->bias_deltas_ptr( sourcev, bufb )
-                             , momentum
+                             , use_momentum
                              , dbn->neurons_size( sourcev )
                              );
       }
       ops.decelerate_biases( *streams[streami]
                            , dmemory->bias_deltas_ptr( topv, bufc )
                            , dmemory->bias_deltas_ptr( topv, bufb )
-                           , momentum
+                           , use_momentum
                            , dbn->neurons_size( topv )
                            );
 
@@ -366,14 +373,13 @@ void DBNScheduler::operator()()
         //// read biases from bufb
         //// adjust them based on sourcev in bufa
         //// write them to bufc
-        /*ops.positive_bias_adjustment( *streams[streami]
+        ops.positive_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
                                     , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
-        */
       }
 
       // positive bias adjustment for top vertex:
@@ -510,14 +516,13 @@ void DBNScheduler::operator()()
         // adjust them based on sourcev in bufa
         // write them to bufc
         // PROBLEM the top vertex probabilities are gone already...
-        /*ops.negative_bias_adjustment( *streams[streami]
+        ops.negative_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
                                     , batch_size
                                     , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->neurons_ptr(sourcev, bufa)
                                     , learning_rate
                                     );
-        */
       }
 
       // negative bias adjustment for top vertex
