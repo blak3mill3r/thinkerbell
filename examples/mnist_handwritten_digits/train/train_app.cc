@@ -49,9 +49,9 @@ void TrainApp::load_examples()
 
     for( int z=0; z<num_values; ++z ) // scale to 0-0.5 range and bias +0.5
     {
+      //digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
       digit_images[z] = 0.0 + (digit_images_uchar[z]/255.0);
     }
-      //digit_images[z] = 0.5 + (digit_images_uchar[z]/510.0);
 
     free(digit_images_uchar);
   }
@@ -111,10 +111,10 @@ TrainApp::TrainApp()
   , scheduler_thread( NULL )
   , scheduler( NULL )
   , num_batches_trained(0)
-  , batch_size(16)
+  , batch_size(128)
   , num_batches_on_host(60000/batch_size)
-  , learning_rate(0.1)
-  , weight_cost(0.002)
+  , learning_rate(0.005)
+  , weight_cost(0.0002)
   , momentum(0.9)
 {
   load_examples();

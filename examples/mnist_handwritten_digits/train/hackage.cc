@@ -116,7 +116,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
       activate_edge_down(e);
   
       // set v's activations based on energies
-      activate_neurons( v );
+      activate_neurons( v, !dbn->is_input_vertex(v) ); // always binary on the way down
     }
   }
 

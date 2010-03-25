@@ -210,8 +210,8 @@ void DBNScheduler::operator()()
       int streami = i%2;
 
       float use_momentum = momentum;
-      if(epoch < 5000)
-        use_momentum = momentum * (epoch/5000.0);
+      if(epoch < 1000)
+        use_momentum = momentum * (epoch/1000.0);
       cout << "Use momentum " << use_momentum << endl;
       epoch++;
 

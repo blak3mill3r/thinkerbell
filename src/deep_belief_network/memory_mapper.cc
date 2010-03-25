@@ -290,8 +290,6 @@ int DBNMemoryMapper::bias_deltas_memory_size()
   pair<Vertex,int> ee;
   BOOST_FOREACH( ee, make_pair( bias_deltas_memory_layout_map.begin(), bias_deltas_memory_layout_map.end()))
   {
-    cout << "bias_deltas_memory_size() ... vertex " << ee.first << " needs  " << ee.second << endl;
-
     total_size += ee.second;
   }
 

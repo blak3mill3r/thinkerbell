@@ -1,3 +1,40 @@
+Fine tuning discrimination with conjugate gradient method
+---------------------------
+the initial vector is the weights
+the matrix is the system of linear equations,
+  IOW a linear equation for each target neuron
+  whose variables are the weights
+  whose coefficients are the source neuron values
+
+a single linear equations for a target neuron:
+
+f(a,b,c,d,e) = qa + rb + sc + td + ue
+
+there are 5 source neurons, the unknowns are the weights from this target neuron to a,b,c,d,e
+the coefficients q,r,s,t,u are the energies of the source neurons
+---------------------------------------<----this is right I think
+
+
+from minimize.m doc:
+The user must supply a function which returns the value and partial derivatives wrt all variables. 
+in Hintons CG_CLASSIFY_INIT that means it returns
+the error, the value we are minimizing, how "wrong" it was about which class the digit was?
+the partial derivatives wrt each variable
+  i.e. partial derivatives wrt each weight
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Good stuff came with
 learning rate .01 for like 16 seconds on layer ab
 and then .0005 for a while
@@ -7,52 +44,26 @@ initial weight distribution is really important, think it's goodish at mean=0 si
 
 
 
+----------_FIXME I don't think this is true, there's no problem with the bias adjustments
 what's wrong is
 when I do the negative bias delta adjusment
 top vertex has binary vals not probabilities
 NEED the probabilities to do the negative bias delta adjustment for the top vertex properly
 IOW we need a temporary memory space for just the top bias deltas
+---------------------
 
 
 
-TODO
-momentum
-  DONE new mem space weight_deltas, 3-buffers, still 3 for weight buffers too
-       positive probability deltas:
-         before positive phase:
-  DONE     weight-delta-bufc element-wise reading bufb               f(x) = x' * momentum
-  DONE     bias-delta-bufc element-wise reading bufb                 f(x) = x' * momentum
-         positive phase:
-  DONE     weight_adjustment, adding to contents of weight-delta-bufc:   f(x) = x + epsilonw*pos-probability-delta/batch_size
-  DONE     bias_adjustment adding to contents of bias-delta-bufc         f(x) = x + epsilonvb*reality-batch/batch_size
-         negative phase:
-  DONE     weight_adjustment, subtracting from weight-delta-bufc:        f(x) = x - epsilonw*neg-probability-deltas/batch_size
-  DONE     bias_adjustment subtracting from bias-delta-bufc              f(x) = x - epsilonvb*fantasy-batch/batch_size
-         error kernel: element wise sum of (reality-fantasy)^2
-         update
-  DONE     weight decay, subtracting from contents of weight-delta-bufc, using weights-bufc  f(x) = x - epsilonw*weightcost*weight
-  DONE     weight update, weight-bufc = weight-bufb + weight-delta-bufc
-  DONE     bias update, bias-bufc = bias-bufb + bias-delta-bufc   
-      
-
-
-
-
-
-
-
-
-
-
-
+Simplify DBNMemoryMapper
 biases_memory_layout_map could be simplified to map<Vertex,int>
 maybe weights_memory_layout_map too
 
 little things
 name changes
   vertex_ptr -> neurons_ptr
-  DeepBeliefNetwork* -> DBN*
 move all the DBN* classes into a namespace deep_belief_network
+
+make a generic "backend" interface for the DBN matrix operations at least
 
 
 
