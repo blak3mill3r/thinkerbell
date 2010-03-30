@@ -81,7 +81,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
           first_one = false;
         }
       }
-      activate_neurons( v, (dbn->is_top_vertex(v)) ); // binary IFF top
+      activate_neurons( v, false ); //(dbn->is_top_vertex(v)) ); // binary IFF top
   
     }
   }
@@ -103,7 +103,7 @@ void DBNHackage::perceive_and_reconstruct(float * original, float * fantasy_imag
       activate_edge_up( e, first_one );
       first_one = false;
     }
-    activate_neurons( dbn->top_vertex(), true ); // always binary
+    activate_neurons( dbn->top_vertex(), false ); // always binary
   }
 
   // for each vertex in reverse topological order except the top one

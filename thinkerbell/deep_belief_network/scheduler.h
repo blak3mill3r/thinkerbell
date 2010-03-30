@@ -23,7 +23,7 @@ private:
   float weight_cost;
   float momentum;
   int num_batches_trained;
-  int batch_size;
+  int batch_size;      // number of examples to process at once ... this will also be the number of "fantasy" particles (aka persistent Markov chains) to ensure balance between positive and negative training pressures
   int num_example_batches;
   int num_example_batches_on_host;
   DBN * dbn;

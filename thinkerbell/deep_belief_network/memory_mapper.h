@@ -29,6 +29,7 @@ public:
                              , DevicePtr
                              , DevicePtr
                              , DevicePtr
+                             , DevicePtr
                              );
 
   DevicePtr weights_ptr( Edge e, int buffer_index )
@@ -42,6 +43,9 @@ public:
 
   DevicePtr neurons_ptr( Vertex v, int buffer_index )
     { return (temporary_vertex_memory_ptr[v][buffer_index]); }
+
+  DevicePtr pmc_neurons_ptr( Vertex v, int buffer_index )
+    { return (pmc_states_ptr_map[v][buffer_index]); }
 
   DevicePtr randoms_ptr()
     { return randoms_ptr_; }
@@ -256,6 +260,7 @@ private:
           ,             bias_deltas_memory_ptr
           ,             randoms_ptr_
           ,             random_configs_ptr_
+          ,             pmc_states_memory_ptr
           ;
 public:
   int temporary_memory_size();
@@ -266,6 +271,7 @@ public:
   int bias_deltas_memory_size();
   int randoms_memory_size();
   int random_configs_memory_size();
+  int pmc_states_memory_size();
   int neurons_batch_size( Vertex v );
 private:
   void weights_memory_requirements( Edge e, bool triple_buffered );
@@ -289,6 +295,7 @@ private:
    map<Edge, int>                weight_deltas_memory_layout_map;
    map<Vertex, pair< int, bool > > biases_memory_layout_map;
    map<Vertex, int>                bias_deltas_memory_layout_map;
+   map<Vertex, int>                pmc_states_memory_layout_map;
  
    // for each Edge, a pointer for each of 3 phases
    // (they will all point to the same buffer iff the weights will not be written to)
@@ -303,6 +310,9 @@ private:
 
    // for each training vertex, a pointer for each of 3 phases
    map<Vertex, vector< DevicePtr > > bias_deltas_ptr_map;
+ 
+   // for each training vertex, a pointer for each of 3 phases to a batch of pmc states
+   map<Vertex, vector< DevicePtr > > pmc_states_ptr_map;
  
 }; // end class DBNMemoryMapper
 

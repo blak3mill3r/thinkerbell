@@ -23,6 +23,7 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
                                             , DevicePtr temporary_memory_ptr_
                                             , DevicePtr randoms_memory_ptr_
                                             , DevicePtr random_configs_memory_ptr_
+                                            , DevicePtr pmc_states_memory_ptr_
                                             )
 {
   weights_memory_ptr       = weights_memory_ptr_        ;
@@ -33,6 +34,7 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
   temporary_memory_ptr     = temporary_memory_ptr_      ; 
   randoms_ptr_             = randoms_memory_ptr_        ; 
   random_configs_ptr_      = random_configs_memory_ptr_ ; 
+  pmc_states_memory_ptr    = pmc_states_memory_ptr_     ;
 
   // precalculate temporary memory layout
   map_temporary_ptrs();
@@ -103,6 +105,43 @@ void DBNMemoryMapper::allocate_device_memory( DevicePtr weights_memory_ptr_
       offset += dbn->neurons_size(v) * batch_size;
     }
   }
+
+  {
+    // assign DevicePtrs for a batch of persistent markov chain states for each of 3 phases for each training vertex
+    //DevicePtr currentp = pmc_states_memory_ptr;
+    int offset = 0;
+    pair<Vertex, int> vv;
+    BOOST_FOREACH( vv, make_pair(pmc_states_memory_layout_map.begin(), pmc_states_memory_layout_map.end()) )
+    {
+      int neurons_size = dbn->neurons_size(vv.first);
+      for(int z=0; z<3; ++z) 
+      {
+        pmc_states_ptr_map[vv.first].push_back( pmc_states_memory_ptr + offset );
+        offset += vv.second/3;
+      }
+    }
+  }
+}
+
+int DBNMemoryMapper::pmc_states_memory_size()
+{
+  // compute memory requirement for persistent markov chains
+  // these are neuron states for all training vertices
+  // there are batch_size of them
+  int offset = 0;
+  Vertex topv = dbn->top_vertex();
+  Edge current;
+  BOOST_FOREACH( current, make_pair(dbn->training_edges_begin(), dbn->training_edges_end()))
+  {
+    Vertex sourcev = source(current, dbn->m_graph);
+    pmc_states_memory_layout_map[sourcev] = offset;
+    offset += sizeof(float) * batch_size * dbn->neurons_size( sourcev ) * 3;
+  }
+  pmc_states_memory_layout_map[topv] = offset;
+  offset += sizeof(float) * batch_size * dbn->neurons_size( topv ) * 3;
+
+  return offset;
+
 }
 
 int DBNMemoryMapper::randoms_memory_size()

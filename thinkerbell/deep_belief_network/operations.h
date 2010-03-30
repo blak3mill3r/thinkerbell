@@ -2,6 +2,7 @@
 #define __DBN_OPERATIONS_H__
 
 #include <cuda.h>
+#include <iomanip>
 
 //#define DEBUG_SYNCHRONIZE
 
@@ -388,8 +389,9 @@ public:
                   stream.synchronize();
                   for(int ni=0; ni<neurons_size; ++ni)
                   {
-                    cout << ( (tempneurons[ni]==0) ? ' ' : 'x' );
-                    if(ni%28==0) cout << endl;
+                    cout << setw(3) << setprecision(3) ;
+                    cout << tempneurons[ni] << "\t" ;
+                    if(ni%32==0) cout << endl;
                   }
                   cout << endl;
                   free(tempneurons);
