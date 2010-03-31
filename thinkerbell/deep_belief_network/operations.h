@@ -20,20 +20,21 @@ public:
   DbnOperations()
     : module_rbm_kernels("cubins/rbm_kernels.cubin")
     , module_rng_kernels("cubins/mersenne_twister_kernels.cubin")
-    , mmul(              module_rbm_kernels, "mmul" )
-    , mmultb(            module_rbm_kernels, "mmul_transpose_b" )
-    , activate_neurons(  module_rbm_kernels, "activate_neurons" )
-    , weight_adjustment( module_rbm_kernels, "weight_adjustment" )
-    , bias_adjustment(   module_rbm_kernels, "bias_adjustment" )
-    , weight_decay(      module_rbm_kernels, "weight_decay" )
-    , weight_update(     module_rbm_kernels, "weight_update" )
-    , bias_update(       module_rbm_kernels, "bias_update" )
-   // , error_squared(     module_rbm_kernels, "error_squared" )
-    , weight_friction(   module_rbm_kernels, "weight_friction" )
-    , bias_friction(     module_rbm_kernels, "bias_friction" )
-/*-----------------------------------------------------------------*/
-    , random(            module_rng_kernels,  "RandomGPU" )
-    , box_muller(        module_rng_kernels,  "BoxMullerGPU" )
+    , mmul(                    module_rbm_kernels, "mmul" )
+    , mmultb(                  module_rbm_kernels, "mmul_transpose_b" )
+    , activate_neurons(        module_rbm_kernels, "activate_neurons" )
+    , activate_input_neurons(  module_rbm_kernels, "activate_input_neurons" )
+    , weight_adjustment(       module_rbm_kernels, "weight_adjustment" )
+    , bias_adjustment(         module_rbm_kernels, "bias_adjustment" )
+    , weight_decay(            module_rbm_kernels, "weight_decay" )
+    , weight_update(           module_rbm_kernels, "weight_update" )
+    , bias_update(             module_rbm_kernels, "bias_update" )
+   // , error_squared(           module_rbm_kernels, "error_squared" )
+    , weight_friction(         module_rbm_kernels, "weight_friction" )
+    , bias_friction(           module_rbm_kernels, "bias_friction" )
+/*-----------------------------------------------------------------------*/
+    , random(                  module_rng_kernels,  "RandomGPU" )
+    , box_muller(              module_rng_kernels,  "BoxMullerGPU" )
   {}
 
   void wait_for_everything_debug(const std::string message)
@@ -178,18 +179,15 @@ public:
                             , DevicePtr randoms
                             )
                             {
-                              activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
-                              activate_neurons.go( neurons_size / BLOCK_SIZE
-                                                 , batch_size / BLOCK_SIZE
-                                                 , stream
-                                                 , example          // copy from example
-                                                 , neurons          // write to neurons
-                                                 , randoms
-                                                 , biases
-                                                 , neurons_size
-                                                 , 0          // not a binary activation, i.e. the values written will be the sigmoid(energies)
-                                                 );
-                              #ifdef DEBUG_SYNCHRONIZE
+                              activate_input_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
+                              activate_input_neurons.go( neurons_size / BLOCK_SIZE
+                                                       , batch_size / BLOCK_SIZE
+                                                       , stream
+                                                       , example          // copy from example
+                                                       , neurons          // write to neurons
+                                                       , neurons_size
+                                                       );
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_input_vertex");
                          #endif
                             }
@@ -201,6 +199,7 @@ public:
                       , DevicePtr randoms
                       , DevicePtr biases
                       , bool binary = true
+                      , float steepness = 1.0
                       )
                       {
                         activate_neurons.setBlockShape( BLOCK_SIZE, BLOCK_SIZE, 1 );
@@ -213,8 +212,9 @@ public:
                                            , biases
                                            , neurons_size
                                            , 0 //( binary ? 1 : 0 )                // binary activation
+                                           , steepness
                                            );
-                        #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_vertex");
                          #endif
                       }
@@ -265,7 +265,7 @@ public:
                                     , weights
                                     , target_neurons_size
                                     );
-                           #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("activate_edge_down");
                          #endif
                          }
@@ -293,7 +293,7 @@ public:
                                                        , learning_rate
                                                        , 0
                                                        );
-                                   #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("positive_weight_adjustment");
                          #endif
                                  }
@@ -320,7 +320,7 @@ public:
                                                        , learning_rate
                                                        , 1
                                                        );
-                                   #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("negative_weight_adjustment");
                          #endif
                                  }
@@ -344,7 +344,7 @@ public:
                                                    , learning_rate
                                                    , 0
                                                    );
-                                 #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("positive_bias_adjustment");
                          #endif
                                }
@@ -368,7 +368,7 @@ public:
                                                    , learning_rate
                                                    , 1
                                                    );
-                                 #ifdef DEBUG_SYNCHRONIZE
+                         #ifdef DEBUG_SYNCHRONIZE
                          wait_for_everything_debug("negative_bias_adjustment");
                          #endif
                                }
@@ -406,6 +406,7 @@ private:
   Function mmul
          , mmultb
          , activate_neurons
+         , activate_input_neurons
          , weight_adjustment
          , bias_adjustment
          , weight_decay

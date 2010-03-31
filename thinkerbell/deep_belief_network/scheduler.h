@@ -22,8 +22,10 @@ private:
   float learning_rate; // weight and bias delta adjustments are scaled by this factor
   float weight_cost;
   float momentum;
+  float sigmoid_steepness;
   int num_batches_trained;
-  int batch_size;      // number of examples to process at once ... this will also be the number of "fantasy" particles (aka persistent Markov chains) to ensure balance between positive and negative training pressures
+  int batch_size;      // number of examples to process at once
+  int num_pmcs;        // number of persistent markov chains
   int num_example_batches;
   int num_example_batches_on_host;
   DBN * dbn;
@@ -39,6 +41,8 @@ private:
 
   mt_struct_stripped h_MT[MT_RNG_COUNT];
 
+  void compute_reconstruction_error_squared( DbnOperations &ops );
+
 public:
   explicit
   DBNScheduler( DBN * dbn_
@@ -49,6 +53,7 @@ public:
               , float learning_rate_
               , float weight_cost_
               , float momentum_
+              , float sigmoid_steepness_
               );
 
   void stop() { time_to_stop = true; }

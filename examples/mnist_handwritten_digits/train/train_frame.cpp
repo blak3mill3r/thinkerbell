@@ -45,6 +45,7 @@ void GreedyLearningFrame::OnChangeLearningRate( wxCommandEvent& event )
 VisualizeReconstructionsFrame::VisualizeReconstructionsFrame( wxWindow* parent, TrainApp* app_ )
   : VisualizeReconstructionsGui( parent )
   , app( app_ )
+  , temperature( 1.0 )
 {
 	m_timer.Connect( wxEVT_TIMER, wxTimerEventHandler( VisualizeReconstructionsFrame::OnTimerEvent ), NULL, this );
 }
@@ -66,13 +67,25 @@ void VisualizeReconstructionsFrame::OnTimerEvent(wxTimerEvent &event)
   hackage->perceive_and_reconstruct( original
                                    , fantasy_image_
                                    , fantasy_labels_
+                                   , temperature
+                                   , num_ags_iterations
                                    );
   m_fantasy_image->set_example( fantasy_image_ );
 }
 
+void VisualizeReconstructionsFrame::OnNumAgsIterationsChanged(wxScrollEvent& event)
+{
+  num_ags_iterations = event.GetPosition();
+}
+
+void VisualizeReconstructionsFrame::OnTemperatureChanged(wxScrollEvent& event)
+{
+  temperature = exp(event.GetPosition() / 10.0);
+}
+
 void VisualizeReconstructionsFrame::OnChangeExample(wxSpinEvent& event)
 {
-  //m_timer.Start(1000);
+  m_timer.Start(5000);
   float fantasy_image_[28*28];
   float fantasy_labels_[16];
 
@@ -86,6 +99,8 @@ void VisualizeReconstructionsFrame::OnChangeExample(wxSpinEvent& event)
   hackage->perceive_and_reconstruct( original
                                    , fantasy_image_
                                    , fantasy_labels_
+                                   , temperature
+                                   , num_ags_iterations
                                    );
   m_fantasy_image->set_example( fantasy_image_ );
 }

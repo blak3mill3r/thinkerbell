@@ -179,22 +179,32 @@ VisualizeReconstructionsGui::VisualizeReconstructionsGui( wxWindow* parent, wxWi
 	this->SetSizeHints( wxDefaultSize, wxDefaultSize );
 	
 	wxFlexGridSizer* fgSizer8;
-	fgSizer8 = new wxFlexGridSizer( 2, 2, 0, 0 );
+	fgSizer8 = new wxFlexGridSizer( 2, 3, 0, 0 );
 	fgSizer8->SetFlexibleDirection( wxBOTH );
 	fgSizer8->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 	
-	m_staticText17 = new wxStaticText( this, wxID_ANY, wxT("Example:"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText17 = new wxStaticText( this, wxID_ANY, wxT("Example:"), wxDefaultPosition, wxDefaultSize, wxALIGN_RIGHT );
 	m_staticText17->Wrap( -1 );
-	fgSizer8->Add( m_staticText17, 0, wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT, 5 );
+	fgSizer8->Add( m_staticText17, 0, wxALIGN_RIGHT|wxRIGHT|wxTOP, 8 );
 	
 	m_example_spin = new wxSpinCtrl( this, wxID_ANY, wxT("0"), wxDefaultPosition, wxSize( -1,-1 ), wxSP_ARROW_KEYS|wxSP_WRAP, 0, 5999, 0 );
 	fgSizer8->Add( m_example_spin, 0, wxALL, 5 );
 	
-	m_original_image = new wxTrainingExampleControl( this, wxSize( 112, 112 ) );
+	m_slider1 = new wxSlider( this, wxID_ANY, 0, -100, 100, wxDefaultPosition, wxDefaultSize, wxSL_VERTICAL );
+	m_slider1->SetMinSize( wxSize( -1,256 ) );
+	
+	fgSizer8->Add( m_slider1, 0, wxALL, 5 );
+	
+	m_original_image = new wxTrainingExampleControl( this, wxSize( 224, 224 ) );
 	fgSizer8->Add( m_original_image, 0, wxALL, 5 );
 	
-	m_fantasy_image = new wxTrainingExampleControl( this, wxSize( 112, 112 ) );
+	m_fantasy_image = new wxTrainingExampleControl( this, wxSize( 224, 224 ) );
 	fgSizer8->Add( m_fantasy_image, 0, wxALL, 5 );
+	
+	m_slider11 = new wxSlider( this, wxID_NUM_AGS_ITERATIONS, 0, 0, 16, wxDefaultPosition, wxDefaultSize, wxSL_VERTICAL );
+	m_slider11->SetMinSize( wxSize( -1,256 ) );
+	
+	fgSizer8->Add( m_slider11, 0, wxALL, 5 );
 	
 	this->SetSizer( fgSizer8 );
 	this->Layout();
@@ -202,6 +212,8 @@ VisualizeReconstructionsGui::VisualizeReconstructionsGui( wxWindow* parent, wxWi
 	// Connect Events
 	this->Connect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( VisualizeReconstructionsGui::OnTryToClose ) );
 	m_example_spin->Connect( wxEVT_COMMAND_SPINCTRL_UPDATED, wxSpinEventHandler( VisualizeReconstructionsGui::OnChangeExample ), NULL, this );
+	m_slider1->Connect( wxEVT_SCROLL_CHANGED, wxScrollEventHandler( VisualizeReconstructionsGui::OnTemperatureChanged ), NULL, this );
+	m_slider11->Connect( wxEVT_SCROLL_CHANGED, wxScrollEventHandler( VisualizeReconstructionsGui::OnNumAgsIterationsChanged ), NULL, this );
 }
 
 VisualizeReconstructionsGui::~VisualizeReconstructionsGui()
@@ -209,4 +221,6 @@ VisualizeReconstructionsGui::~VisualizeReconstructionsGui()
 	// Disconnect Events
 	this->Disconnect( wxEVT_CLOSE_WINDOW, wxCloseEventHandler( VisualizeReconstructionsGui::OnTryToClose ) );
 	m_example_spin->Disconnect( wxEVT_COMMAND_SPINCTRL_UPDATED, wxSpinEventHandler( VisualizeReconstructionsGui::OnChangeExample ), NULL, this );
+	m_slider1->Disconnect( wxEVT_SCROLL_CHANGED, wxScrollEventHandler( VisualizeReconstructionsGui::OnTemperatureChanged ), NULL, this );
+	m_slider11->Disconnect( wxEVT_SCROLL_CHANGED, wxScrollEventHandler( VisualizeReconstructionsGui::OnNumAgsIterationsChanged ), NULL, this );
 }

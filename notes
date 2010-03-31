@@ -1,3 +1,11 @@
+randomize order of samples
+so that skinny 0 isn't always along with the same other stuff
+
+
+
+
+
+
 Fine tuning discrimination with conjugate gradient method
 ---------------------------
 the initial vector is the weights

@@ -42,6 +42,7 @@ public:
   float learning_rate;
   float weight_cost;
   float momentum;
+  float sigmoid_steepness;
 
 private:
 

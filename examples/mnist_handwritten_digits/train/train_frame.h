@@ -102,9 +102,13 @@ protected:
   // Event handlers
   void OnChangeExample( wxSpinEvent& event );
   void OnTimerEvent(wxTimerEvent &event);
+  void OnTemperatureChanged(wxScrollEvent &event);
+  void OnNumAgsIterationsChanged(wxScrollEvent &event);
 private:
   TrainApp * app;
   wxTimer m_timer;
+  float temperature;
+  int num_ags_iterations;
 };
 
 #endif // __train_frame__

@@ -5,11 +5,13 @@ namespace thinkerbell {
 DBNMemoryMapper::DBNMemoryMapper( DBNScheduler * dbn_scheduler_
                                 , DBN * dbn_
                                 , int batch_size_
+                                , int num_pmcs_
                                 , int num_example_batches_
                                 )
   : dbn( dbn_ )
   , dbn_scheduler( dbn_scheduler_ )
   , batch_size( batch_size_ )
+  , num_pmcs( num_pmcs_ )
   , num_example_batches( num_example_batches_ )
   , temporary_memory_minimum_size(0)
 {
@@ -127,7 +129,7 @@ int DBNMemoryMapper::pmc_states_memory_size()
 {
   // compute memory requirement for persistent markov chains
   // these are neuron states for all training vertices
-  // there are batch_size of them
+  // there are num_pmcs of them
   int offset = 0;
   Vertex topv = dbn->top_vertex();
   Edge current;
@@ -135,10 +137,10 @@ int DBNMemoryMapper::pmc_states_memory_size()
   {
     Vertex sourcev = source(current, dbn->m_graph);
     pmc_states_memory_layout_map[sourcev] = offset;
-    offset += sizeof(float) * batch_size * dbn->neurons_size( sourcev ) * 3;
+    offset += sizeof(float) * num_pmcs * dbn->neurons_size( sourcev ) * 3;
   }
   pmc_states_memory_layout_map[topv] = offset;
-  offset += sizeof(float) * batch_size * dbn->neurons_size( topv ) * 3;
+  offset += sizeof(float) * num_pmcs * dbn->neurons_size( topv ) * 3;
 
   return offset;
 

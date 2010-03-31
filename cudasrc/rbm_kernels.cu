@@ -114,9 +114,9 @@ mmul_transpose_b( float* C
 
 #define SIGMOID_STEEPNESS 1.0
 // the sigmoid function
-__device__ float sigmoid( float v )
+__device__ float sigmoid( float v, float steepness )
 {
-  return 1.0 / ( 1.0 + __expf( -v * SIGMOID_STEEPNESS ) );
+  return 1.0 / ( 1.0 + __expf( -v * steepness ) );
 }
 
 extern "C"
@@ -126,19 +126,35 @@ activate_neurons( float* energies               // read from
                 , float* randoms
                 , float* biases
                 , int neurons_size
-                , int binary )
+                , int binary
+                , float steepness )
 {
   int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
   int neuroni = BLOCK_SIZE*bx + tx;
   int batchi = BLOCK_SIZE*by + ty;
   int i = batchi*neurons_size + neuroni;
-  float energy = sigmoid(energies[i]+biases[neuroni]);
-  //float random = (randoms[i]) + 0.5;
+  float energy = sigmoid(energies[i]+biases[neuroni], steepness);
   float random = randoms[i];
   if(binary)
     activations[i] = ( energy > random ) ? 1.0 : 0.0 ;
   else
     activations[i] = energy;
+}
+
+// this is just a copy
+// activations = data
+extern "C"
+__global__ void
+activate_input_neurons( float* data
+                      , float* activations
+                      , int neurons_size
+                      )
+{
+  int bx = blockIdx.x; int by = blockIdx.y; int tx = threadIdx.x; int ty = threadIdx.y;
+  int neuroni = BLOCK_SIZE*bx + tx;
+  int batchi = BLOCK_SIZE*by + ty;
+  int i = batchi*neurons_size + neuroni;
+  activations[i] = data[i];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

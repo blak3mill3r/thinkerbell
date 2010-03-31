@@ -52,7 +52,7 @@ void wxTrainingExampleControl::paintNow()
 void wxTrainingExampleControl::render(wxDC&  dc)
 {
   wxBitmap * scaled_bmp = new wxBitmap( 
-    m_bitmap->ConvertToImage().Scale( 112, 112 )
+    m_bitmap->ConvertToImage().Scale( 224, 224 )
   );
   dc.DrawBitmap( *scaled_bmp, 0, 0 );
 }

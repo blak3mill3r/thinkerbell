@@ -111,11 +111,12 @@ TrainApp::TrainApp()
   , scheduler_thread( NULL )
   , scheduler( NULL )
   , num_batches_trained(0)
-  , batch_size(64)
+  , batch_size(128)
   , num_batches_on_host(60000/batch_size)
-  , learning_rate(0.005)
+  , learning_rate(0.000001)
   , weight_cost(0.0002)
   , momentum(0.9)
+  , sigmoid_steepness(1.0)
 {
   load_examples();
 }
@@ -162,8 +163,16 @@ void TrainApp::start_scheduler()
 {
   if(scheduler!=NULL) delete scheduler;
   if(scheduler_thread!=NULL) delete scheduler_thread;
-  cout << "about to start it and learning rate is " << learning_rate << endl;
-  scheduler = new DBNScheduler( &dbn, batch_size, 1, num_batches_on_host, prepare_examples, learning_rate, weight_cost, momentum );
+  scheduler = new DBNScheduler( &dbn
+                              , batch_size
+                              , 1
+                              , num_batches_on_host
+                              , prepare_examples
+                              , learning_rate
+                              , weight_cost
+                              , momentum
+                              , sigmoid_steepness 
+                              );
   scheduler_thread = new thread( ref(*scheduler) );
 }
 

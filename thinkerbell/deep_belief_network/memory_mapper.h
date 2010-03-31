@@ -19,7 +19,7 @@ class DBNScheduler;
 class DBNMemoryMapper : noncopyable
 {
 public:
-  DBNMemoryMapper( DBNScheduler * dbn_scheduler_, DBN * dbn_, int batch_size_, int num_example_batches_ );
+  DBNMemoryMapper( DBNScheduler * dbn_scheduler_, DBN * dbn_, int batch_size_, int num_pmcs_, int num_example_batches_ );
 
   void allocate_device_memory( DevicePtr
                              , DevicePtr
@@ -283,6 +283,7 @@ private:
   DBN * dbn;
   DBNScheduler * dbn_scheduler;
   int batch_size
+    , num_pmcs
     , num_example_batches
     , example_buffer_size
     , temporary_buffer_size

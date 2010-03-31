@@ -1,7 +1,7 @@
 /*
  * Class Rbm
- * Encapsulates two instances of Neurons and a Weights
- * exposes operations which invoke cuda kernels
+ * has pointers to two Neurons
+ * and a Weights member
  */
 
 #include <iostream>
@@ -17,7 +17,7 @@ float gaussian_random()
 {
   static mt19937 rng(static_cast<unsigned> (time(NULL)));
   // Gaussian probability distribution
-  normal_distribution<float> dist(0.0, 0.1);
+  normal_distribution<float> dist(0.0, 1.0);
   variate_generator<mt19937&, normal_distribution<float> >  normal_sampler(rng, dist);
   return normal_sampler();
 }
@@ -35,7 +35,7 @@ void Rbm::randomize_weights()
 {
   weight_type * weights = m_W.weights();
   for(uint wi = 0; wi < m_W.size(); ++wi)
-    weights[wi] = gaussian_random();
+    weights[wi] = gaussian_random() * 128.0 / m_B->size();
 }
 
 

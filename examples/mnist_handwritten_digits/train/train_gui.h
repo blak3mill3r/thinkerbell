@@ -25,6 +25,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/spinctrl.h>
+#include <wx/slider.h>
 #include "training_example_widget.h"
 #include "list_box_generic_container.h"
 
@@ -36,6 +37,7 @@
 #define ID_FILE_QUIT 1003
 #define ID_TRAIN_GREEDY_LEARNING 1004
 #define ID_VISUALIZE_RECONSTRUCTIONS 1005
+#define wxID_NUM_AGS_ITERATIONS 1006
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Class TrainGui
@@ -109,16 +111,20 @@ class VisualizeReconstructionsGui : public wxFrame
 	protected:
 		wxStaticText* m_staticText17;
 		wxSpinCtrl* m_example_spin;
+		wxSlider* m_slider1;
 		wxTrainingExampleControl * m_original_image;
 		wxTrainingExampleControl * m_fantasy_image;
+		wxSlider* m_slider11;
 		
 		// Virtual event handlers, overide them in your derived class
 		virtual void OnTryToClose( wxCloseEvent& event ){ event.Skip(); }
 		virtual void OnChangeExample( wxSpinEvent& event ){ event.Skip(); }
+		virtual void OnTemperatureChanged( wxScrollEvent& event ){ event.Skip(); }
+		virtual void OnNumAgsIterationsChanged( wxScrollEvent& event ){ event.Skip(); }
 		
 	
 	public:
-		VisualizeReconstructionsGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Visualize Reconstructions"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 500,300 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
+		VisualizeReconstructionsGui( wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Visualize Reconstructions"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 800,600 ), long style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
 		~VisualizeReconstructionsGui();
 	
 };

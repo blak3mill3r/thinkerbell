@@ -33,8 +33,8 @@ class DBNHackage
 public:
   DBNHackage( DBN * dbn_ );
   ~DBNHackage();
-  void perceive_and_reconstruct(float * original, float * fantasy_image, float * fantasy_labels);
-  void activate_neurons( Vertex v, bool binary = false );
+  void perceive_and_reconstruct(float * original, float * fantasy_image, float * fantasy_labels, float steepness, int num_ags_iterations);
+  void activate_neurons( Vertex v, bool binary, float steepness );
   void activate_edge_up( Edge e, bool first_one );
   void activate_edge_down( Edge e );
 };

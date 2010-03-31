@@ -1,15 +1,5 @@
 /* contents at a glance...
  *
- * okay todo is get rid of steps 6 7 8 (and 9 gets changed)
- * --here's steps 3, 4, 5
- *   inference for pmcs
- *   negative gradient
- *   finish gibbs iteration for pmcs
- * --here's steps 10, 11
- *   
- *   
- *
- *
  * STEP1: get cuda context and set some initial values
  * loop until stop signal
  * {
@@ -17,9 +7,9 @@
  *   STEP3: infer neuron state probabilities for each non-input vertex given the training example
  *   STEP4: weight momentum
  *   STEP5: positive learning step
- *   STEP6*: infer neuron state probabilities for the top vertex of the pmcs
- *   STEP7*: negative learning step
- *   STEP8*: complete the gibbs sampling iteration for the pmcs
+ *   STEP6: infer neuron state probabilities for the top vertex of the pmcs
+ *   STEP7: negative learning step
+ *   STEP8: complete the gibbs sampling iteration for the pmcs
  *   STEP10 (9*): weight decay
  *   STEP11 (10*): parameter updates
  * }
@@ -30,7 +20,23 @@
 
 #define MERSENNE_TWISTER_DAT_FILE "../data/MersenneTwister.dat"
 
-#define NUM_AGS_ITERATIONS_PER_WEIGHT_UPDATE 5
+// important! the effectiveness of the algorithm is sensitive to changes to this,
+// too small and the persistent markov chains will not mix fast enough to keep up with
+// changes in the energy landscape (weight adjustments)
+// too big hurts performance linearly
+// TODO it might be preferable to set this automatically with an heuristic rather than a constant
+#define NUM_AGS_ITERATIONS_PER_WEIGHT_UPDATE 16
+
+// TODO interface with GUI
+// every n steps transfer the weights and biases from device to host (to observe training progress)
+#define AUTO_TRANSFER_PARAMS_PERIOD 128
+
+// every n steps pause training to compute squared error
+#define COMPUTE_ERROR_PERIOD 8192*8192
+
+// how fast the learning rate decays
+// bigger is faster
+#define LEARNING_RATE_DECAY_RATE 0.01
 
 namespace thinkerbell {
 
@@ -42,17 +48,20 @@ DBNScheduler::DBNScheduler( DBN * dbn_
                           , float learning_rate_
                           , float weight_cost_
                           , float momentum_
+                          , float sigmoid_steepness_
                           )
   : batch_size( batch_size_ )
+  , num_pmcs( 128 )
   , dbn( dbn_ )
   , num_example_batches( num_example_batches_on_device_ )
   , num_example_batches_on_host( num_example_batches_on_host_ )
   , time_to_stop( false )
-  , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_example_batches_on_device_ ) )
+  , dmemory( new DBNMemoryMapper( this, dbn, batch_size, num_pmcs, num_example_batches_on_device_ ) )
   , learning_rate( learning_rate_ )
   , new_examples_callback( new_examples_callback_ )
   , weight_cost( weight_cost_ )
   , momentum( momentum_ )
+  , sigmoid_steepness( sigmoid_steepness_ )
   , num_batches_trained( 0 )
 {}
 
@@ -97,6 +106,11 @@ void DBNScheduler::generate_more_randoms( const Stream &stream, DbnOperations &o
 {
   seed_rng();
   ops.generate_randoms( stream, dmemory->randoms_ptr(), dmemory->random_configs_ptr() );
+}
+
+void DBNScheduler::compute_reconstruction_error_squared( DbnOperations &ops )
+{
+  
 }
 
 void DBNScheduler::operator()()
@@ -203,13 +217,13 @@ void DBNScheduler::operator()()
       for(int bi=0; bi<3; ++bi)
         memset32( dmemory->pmc_neurons_ptr(sourcev, bi)
                 , static_cast<unsigned int>( (float)0.0 )
-                , dbn->neurons_size(sourcev) * batch_size
+                , dbn->neurons_size(sourcev) * num_pmcs
                 );
     }
     for(int bi=0; bi<3; ++bi)
       memset32( dmemory->pmc_neurons_ptr(topv, bi)
               , static_cast<unsigned int>( (float)0.0 )
-              , dbn->neurons_size(topv) * batch_size
+              , dbn->neurons_size(topv) * num_pmcs
               );
 
     // init the rng
@@ -234,16 +248,15 @@ void DBNScheduler::operator()()
     //exec_end[2].record( *streams[0] );
     //exec_end[0].record( *streams[1] );
 
-    float use_learning_rate =  learning_rate;
-    float min_learning_rate = 0.0000001;
-    float learning_rate_step = -0.0000001;
+    //float use_learning_rate =  learning_rate;
+    //float min_learning_rate = 0.000000001;
+    //float learning_rate_step = -0.00000001;
     int zzz = 0;
     int epoch = 0;
     while(true)
     for(int i=0; i<2*3; ++i) // 6 is divisible by 2 and 3
     {
-      random_offset = 0; // FIXME randoms are not used at all and can be removed...??, this keeps kernels from crashing
-
+      random_offset = 0;
                             // this gives us three phases
       int bufa = ((i+0)%3); // bufa weight buffers will be used for activation steps
       int bufb = ((i+1)%3); // bufb weights will be used as the source of weights and deltas (because it was written to last step and is guaranteed not to be written during this iteration)
@@ -251,24 +264,18 @@ void DBNScheduler::operator()()
       int streami = i%2;
 
       float use_momentum = momentum;
-      if(epoch < 100)
-        use_momentum = momentum * (epoch/100.0);
-      cout << "Use momentum " << use_momentum << endl;
+      if(epoch < 5000)
+        use_momentum = momentum * (epoch/5000.0);
 
-      use_learning_rate += learning_rate_step;
-      use_learning_rate = (use_learning_rate > min_learning_rate) ?
-                           use_learning_rate : min_learning_rate;
-
-      cout << "Use rate " << use_learning_rate << endl;
+      float use_learning_rate = learning_rate / ((epoch*LEARNING_RATE_DECAY_RATE)+1);
 
       float use_weight_cost = weight_cost; // (epoch < 100) ? weight_cost * (100-epoch): weight_cost;
-      cout << "cost " << use_weight_cost << endl;
       epoch++;
 
       ////////////////////////////////////////////
       // STEP2: choose a random training example
       ////////////////////////////////////////////
-      int example_index = trainer->get_random_example_index();
+      int example_index = trainer->get_random_example_index(); // FIXME name change example_index -> example_batch_index etc
 
       // synch with the end of the execution of the last one using A buffers
       if(!exec_end[bufa].query())
@@ -329,6 +336,7 @@ void DBNScheduler::operator()()
           // set v's activations based on energies
           // 'tis not a binary activation ... important!
           // the values in dmemory->neurons_ptr(v, bufa) are probabilities after running this
+      random_offset = 0;
           ops.activate_vertex( dbn->neurons_size(v)
                              , batch_size
                              , (*streams[streami])
@@ -336,6 +344,7 @@ void DBNScheduler::operator()()
                              , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(v))))
                              , dmemory->biases_ptr(v, bufa)
                              , false
+                             , sigmoid_steepness
                              );
     
           /*
@@ -413,7 +422,7 @@ void DBNScheduler::operator()()
                                     );
       }
 
-      // positive bias adjustment for topv vertex:
+      // positive bias adjustment for topv:
       ops.positive_bias_adjustment( *streams[streami]
                                   , dbn->neurons_size(topv)
                                   , batch_size
@@ -422,9 +431,9 @@ void DBNScheduler::operator()()
                                   , use_learning_rate
                                   );
 
-      ////////////////////////////////////
-      // STEP6*: infer neuron state probabilities for the topv vertex of the pmcs
-      ////////////////////////////////////
+      //////////////////////////////////////////////////////////////////
+      // STEP6: infer neuron state probabilities for topv of the pmcs
+      //////////////////////////////////////////////////////////////////
 
       // topv gets activated by each of its in-edges:
       bool first_one = true;
@@ -433,7 +442,7 @@ void DBNScheduler::operator()()
         Vertex sourcev = source( e, dbn->m_graph );
         ops.activate_edge_up( dbn->neurons_size( topv )
                             , dbn->neurons_size( sourcev )
-                            , batch_size
+                            , num_pmcs
                             , *(streams[streami])
                             , dmemory->pmc_neurons_ptr( topv, bufa )
                             , dmemory->pmc_neurons_ptr( sourcev, bufa )
@@ -442,22 +451,32 @@ void DBNScheduler::operator()()
                             );
         first_one = false;
       }
+
+      //if(((MT_RNG_COUNT * 5860) - dmemory->neurons_batch_size(topv)) <= 0)
+      //{
+      //  streams[0]->synchronize();
+      //  streams[1]->synchronize();
+      //  generate_more_randoms(*streams[streami], ops);
+      //  random_offset = 0;
+      //}
     
+      random_offset = 0;
       // set topv's activations based on energies
       ops.activate_vertex( dbn->neurons_size(topv)
-                         , batch_size
+                         , num_pmcs
                          , (*streams[streami])
                          , dmemory->pmc_neurons_ptr(topv, bufa)
-                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(topv))))
+                         , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += (dbn->neurons_size(topv)*num_pmcs))))
                          , dmemory->biases_ptr(topv, bufa)
                          , false
+                         , sigmoid_steepness
                          );
     
       ////////////////////////////////////
-      // STEP7*: negative learning step
+      // STEP7: negative learning step
       ////////////////////////////////////
 
-      // for each in-edge of the topv vertex, do a negative weight adjustment
+      // for each in-edge of topv, do a negative weight adjustment
       // and a negative bias adjustment for the source vertex
       BOOST_FOREACH( Edge e, in_edges( topv, dbn->m_graph ) )
       {
@@ -465,7 +484,7 @@ void DBNScheduler::operator()()
         ops.negative_weight_adjustment( *streams[streami]
                                       , dbn->neurons_size(topv)
                                       , dbn->neurons_size(sourcev)
-                                      , batch_size
+                                      , num_pmcs
                                       , dmemory->weight_deltas_ptr(e, bufc)
                                       , dmemory->pmc_neurons_ptr(sourcev, bufa)
                                       , dmemory->pmc_neurons_ptr(topv, bufa)
@@ -477,24 +496,24 @@ void DBNScheduler::operator()()
         // write them to bufc
         ops.negative_bias_adjustment( *streams[streami]
                                     , dbn->neurons_size(sourcev)
-                                    , batch_size
+                                    , num_pmcs
                                     , dmemory->bias_deltas_ptr(sourcev, bufc)
                                     , dmemory->pmc_neurons_ptr(sourcev, bufa)
                                     , use_learning_rate
                                     );
       }
 
-      // negative bias adjustment for topv vertex
+      // negative bias adjustment for topv
       ops.negative_bias_adjustment( *streams[streami]
                                   , dbn->neurons_size(topv)
-                                  , batch_size
+                                  , num_pmcs
                                   , dmemory->bias_deltas_ptr(topv, bufc)
                                   , dmemory->pmc_neurons_ptr(topv, bufa)
                                   , use_learning_rate
                                   );
 
       ////////////////////////////////////////////////////////////////
-      // STEP8*: complete the gibbs sampling iterations for the pmcs
+      // STEP8: complete the gibbs sampling iterations for the pmcs
       ////////////////////////////////////////////////////////////////
 
       for(int agsi = 0; agsi < NUM_AGS_ITERATIONS_PER_WEIGHT_UPDATE; ++agsi)
@@ -509,7 +528,7 @@ void DBNScheduler::operator()()
             Vertex sourcev = source( e, dbn->m_graph );
             ops.activate_edge_up( dbn->neurons_size( topv )
                                 , dbn->neurons_size( sourcev )
-                                , batch_size
+                                , num_pmcs
                                 , *(streams[streami])
                                 , dmemory->pmc_neurons_ptr( topv, bufa )
                                 , dmemory->pmc_neurons_ptr( sourcev, bufa )
@@ -518,15 +537,25 @@ void DBNScheduler::operator()()
                                 );
             first_one = false;
           }
+
+          //if(((MT_RNG_COUNT * 5860) - dmemory->neurons_batch_size(topv)) <= 0)
+          //{
+          //  streams[0]->synchronize();
+          //  streams[1]->synchronize();
+          //  generate_more_randoms(*streams[streami], ops);
+          //  random_offset = 0;
+          //}
     
+      random_offset = 0;
           // set topv's activations based on energies
           ops.activate_vertex( dbn->neurons_size(topv)
-                             , batch_size
+                             , num_pmcs
                              , (*streams[streami])
                              , dmemory->pmc_neurons_ptr(topv, bufa)
-                             , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(topv))))
+                             , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += (dbn->neurons_size(topv)*num_pmcs))))
                              , dmemory->biases_ptr(topv, bufa)
                              , false
+                             , sigmoid_steepness
                              );
         }
     
@@ -534,33 +563,44 @@ void DBNScheduler::operator()()
         // on the last iteration write to bufc instead of bufa
         int write_buf = (NUM_AGS_ITERATIONS_PER_WEIGHT_UPDATE - agsi == 1) ? bufc : bufa ;
 
-        // down-activate each in-edge of the topv
+        // down-activate each in-edge of topv
         BOOST_FOREACH( Edge e, in_edges( topv, dbn->m_graph ) )
         {
           Vertex sourcev = source( e, dbn->m_graph );
           ops.activate_edge_down( dbn->neurons_size( topv )
                                 , dbn->neurons_size( sourcev )
-                                , batch_size
+                                , num_pmcs
                                 , *(streams[streami])
                                 , dmemory->pmc_neurons_ptr( topv, bufa )
                                 , dmemory->pmc_neurons_ptr( sourcev, write_buf )
                                 , dmemory->weights_ptr( e, bufa )
                                 );
+
+          //if(((MT_RNG_COUNT * 5860) - dmemory->neurons_batch_size(sourcev)) <= 0)
+          //{
+          //  streams[0]->synchronize();
+          //  streams[1]->synchronize();
+          //  generate_more_randoms(*streams[streami], ops);
+          //  random_offset = 0;
+          //}
+
+      random_offset = 0;
           // set sourcev probabilities
           ops.activate_vertex( dbn->neurons_size(sourcev)
-                             , batch_size
+                             , num_pmcs
                              , (*streams[streami])
                              , dmemory->pmc_neurons_ptr(sourcev, write_buf)
-                             , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += dmemory->neurons_batch_size(sourcev))))
+                             , (dmemory->randoms_ptr() + (sizeof(float) * (random_offset += (dbn->neurons_size(sourcev)*num_pmcs))))
                              , dmemory->biases_ptr(sourcev, bufa)
                              , false
+                             , sigmoid_steepness
                              );
         }
       }
 
 
       ////////////////////////
-      // STEP9*: weight decay
+      // STEP9: weight decay
       ////////////////////////
 
       // weight decay for each training edge
@@ -577,7 +617,7 @@ void DBNScheduler::operator()()
       }
 
       //////////////////////////////
-      // STEP10*: parameter updates
+      // STEP10: parameter updates
       //////////////////////////////
 
       BOOST_FOREACH( Edge e, make_pair(dbn->training_edges_begin(),dbn->training_edges_end()) )
@@ -605,11 +645,13 @@ void DBNScheduler::operator()()
                        );
 
 
-      // potentially transfer parameters back to host
-
-      if(epoch%256==0)
+      // periodically transfer parameters back to host
+      if(epoch%AUTO_TRANSFER_PARAMS_PERIOD==0)
       {
         cout << "Transfer" << endl;
+        cout << "Use rate " << use_learning_rate << endl;
+        cout << "Use momentum " << use_momentum << endl;
+        cout << "cost " << use_weight_cost << endl;
         streams[0]->synchronize();
         streams[1]->synchronize();
       
@@ -629,7 +671,13 @@ void DBNScheduler::operator()()
         }
       }
 
-
+      // periodically compute sum of squared error between data and reconstruction vectors
+      if(epoch%COMPUTE_ERROR_PERIOD==0)
+      {
+        streams[0]->synchronize();
+        streams[1]->synchronize();
+        compute_reconstruction_error_squared(ops);
+      }
 
       ////////////////////////////////////////////////////
       // all done... record the exec_end event
